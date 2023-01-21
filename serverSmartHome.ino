@@ -50,6 +50,7 @@ void setup() {
 
 void loop() {
 
+
 	if (mcp2515.readMessage(&canReceived) == MCP2515::ERROR_OK) {
 		switchGroup = canReceived.data[1];
 		writeLcd();
