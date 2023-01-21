@@ -1,11 +1,16 @@
 #include <LiquidCrystal_I2C.h>
+#include <SPI.h>
+#include <mcp2515.h>
+
 
 LiquidCrystal_I2C lcd(0x27,16,2);
 
+MCP2515 mcp2515(10);
 
 byte p1[8]={B11111,B10001,B10001,B10001,B10001,B10001,B10001,B11111};
 
-uint32_t switchGroup=0;
+struct can_frame canReceived;
+uint8_t switchGroup = 0;
 byte kolSwitch = sizeof(switchGroup)*8;
 
 uint8_t syncArray[32][8];
@@ -33,6 +38,10 @@ void setup() {
 	lcd.clear();
 	lcd.backlight();
 
+	mcp2515.reset();
+	mcp2515.setBitrate(CAN_125KBPS);
+	mcp2515.setNormalMode();
+
 	writeLcd();
 }
 
@@ -41,12 +50,9 @@ void setup() {
 
 void loop() {
 
-	for(int i=0;i<kolSwitch;i++){
-		switchGroup |=1UL << i;
+	if (mcp2515.readMessage(&canReceived) == MCP2515::ERROR_OK) {
+		switchGroup = canReceived.data[1];
 		writeLcd();
-		delay(4000);
-		switchGroup=0;
 	}
-
 
 }
