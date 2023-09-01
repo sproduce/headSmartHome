@@ -125,6 +125,11 @@ bool setupEndpoint()
 				if (currentBit > 16){
 					channel.status = 0;
 					setChannelStatus();
+					canData.can_id = 0x707;
+					canData.can_dlc = 1;
+					canData.data[0] = 1;// can message cannot be empty
+					mcp2515.sendMessage(&canData);
+
 					mcp2515.clearRXnOVR();
 					mcp2515.clearMERR();
 					mcp2515.clearInterrupts();
@@ -152,6 +157,7 @@ bool buttonRead(struct button * currentButton) {
 		currentButton->status = curretnStatus;
 		return true;
 	}
+
 
 	return false;
 }
