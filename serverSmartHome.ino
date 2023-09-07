@@ -68,7 +68,7 @@ void setup() {
 
 
 	mcp2515.reset();
-	mcp2515.setBitrate(CAN_125KBPS);
+	mcp2515.setBitrate(CAN_50KBPS);
 	mcp2515.setNormalMode();
 	Serial.begin(9600);
 
@@ -108,6 +108,18 @@ bool setupEndpoint()
 		if (buttonRead(&buttons[0])) {
 			if (buttons[0].status) {
 				channel.status = 0;
+				if (currentBit > 16){
+					channel.status = 0;
+					setChannelStatus();
+					canData.can_id = 0x707;
+					canData.can_dlc = 1;
+					canData.data[0] = 1;// can message cannot be empty
+					mcp2515.sendMessage(&canData);
+					mcp2515.clearRXnOVR();
+					mcp2515.clearMERR();
+					mcp2515.clearInterrupts();
+					return 1;
+				}
 				if (currentBit < 16){
 					channel.status |= 1UL << currentBit;
 					canData.can_id = 0x700;
@@ -121,20 +133,6 @@ bool setupEndpoint()
 					canData.data[0] = 0xf0 + HEAD_NUMBER;
 					mcp2515.sendMessage(&canData);
 				}
-
-				if (currentBit > 16){
-					channel.status = 0;
-					setChannelStatus();
-					canData.can_id = 0x707;
-					canData.can_dlc = 1;
-					canData.data[0] = 1;// can message cannot be empty
-					mcp2515.sendMessage(&canData);
-
-					mcp2515.clearRXnOVR();
-					mcp2515.clearMERR();
-					mcp2515.clearInterrupts();
-					return 1;
-				}
 				setChannelStatus();
 				currentBit++;
 			}
@@ -146,16 +144,21 @@ bool setupEndpoint()
 
 bool buttonRead(struct button * currentButton) {
 
-	uint8_t curretnStatus = !digitalRead(currentButton->channel);
+uint8_t curretnStatus = !digitalRead(currentButton->channel);
 
-	if (curretnStatus != currentButton->status && !currentButton->changeTime ) {
-		currentButton->changeTime = millis();
-	}
-
-	if (curretnStatus != currentButton->status && millis() - currentButton->changeTime > 100){
-		currentButton->changeTime = 0;
-		currentButton->status = curretnStatus;
-		return true;
+	if (curretnStatus != currentButton->status){
+		if (!currentButton->changeTime ) {
+			currentButton->changeTime = millis();
+		}
+		if (millis() - currentButton->changeTime > 100){
+			currentButton->changeTime = 0;
+			currentButton->status = curretnStatus;
+			return true;
+		}
+	} else {
+		if (currentButton->changeTime > 110){
+			currentButton->changeTime = 0;
+		}
 	}
 
 
@@ -184,8 +187,13 @@ void canRead()
 	if (mcp2515.readMessage(&canData) == MCP2515::ERROR_OK) {
 		if (canData.can_id >= FIRST_CH && canData.can_id <= LAST_CH){
 			channel.status ^= 1UL << (canData.can_id - FIRST_CH);
-			changeChannelStatus = true;
+
+		} else {
+			if (canData.can_id = 0xF0 + HEAD_NUMBER){
+				channel.status = 0;
+			}
 		}
+		changeChannelStatus = true;
 	}
 
 }
