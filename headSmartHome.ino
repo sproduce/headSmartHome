@@ -1,29 +1,54 @@
 #include "Arduino.h"
 #include <mcp2515.h>
-#include "canParse.h"
+#include <stdint.h>
 
+#define DEBUG 0
 
 #define CHANNELS 16
-
 #define HEAD_NUMBER 1
+
+
+
 
 #define FIRST_CH  HEAD_NUMBER * 16
 #define LAST_CH  FIRST_CH + CHANNELS
 
-#define LATCH_PIN A2 //16
-#define DATA_PIN A5 //19
-#define CLOCK_PIN A3 //17
-#define CLEAR_PIN A1 //15
-#define OE_PIN A4 //18
+#define LATCH_PIN 16 //A2
+#define DATA_PIN 19 //A5
+#define CLOCK_PIN 17 //A3
+#define CLEAR_PIN 15 //A1
+#define OE_PIN 18 //A4
 
 #define RESET_BUTTON 3
 #define COUNT_BUTTON 1
 
+
+
+
+
+
+
+
 struct button {
 	uint8_t channel;
-	uint8_t status = false;
+	uint8_t status = 0;
 	uint32_t changeTime = 0;
 } buttons[COUNT_BUTTON];
+
+
+
+uint16_t channelStatus=0;
+
+
+
+#if DEBUG
+	#include "canParse.h"
+#else
+	#include "channelStatus.h"
+#endif
+
+
+
 
 
 MCP2515 mcp2515(10);
@@ -34,10 +59,6 @@ volatile bool canReceived = false;
 volatile bool changeChannelStatus = false;
 
 
-union allChannel{
-	uint16_t status=0;
-	uint8_t statusByte[2];
-} channel;
 
 
 void buttonsInit() {
@@ -107,10 +128,9 @@ bool setupEndpoint()
 	{
 		if (buttonRead(&buttons[0])) {
 			if (buttons[0].status) {
-				channel.status = 0;
+				channelStatus = 0;
 				if (currentBit > 16){
-					channel.status = 0;
-					setChannelStatus();
+					setChannelStatus(&channelStatus);
 					canData.can_id = 0x707;
 					canData.can_dlc = 1;
 					canData.data[0] = 1;// can message cannot be empty
@@ -121,19 +141,19 @@ bool setupEndpoint()
 					return 1;
 				}
 				if (currentBit < 16){
-					channel.status |= 1UL << currentBit;
+					channelStatus = bit(currentBit);
 					canData.can_id = 0x700;
 					canData.can_dlc = 1;
 					canData.data[0] = FIRST_CH + currentBit;
 					mcp2515.sendMessage(&canData);
-				} else {
-					channel.status = 0xFFFF;
+				} else {// currentBit = 16
+					channelStatus = 0xFFFF;
 					canData.can_id = 0x700;
 					canData.can_dlc = 1;
 					canData.data[0] = 0xf0 + HEAD_NUMBER;
 					mcp2515.sendMessage(&canData);
 				}
-				setChannelStatus();
+				setChannelStatus(&channelStatus);
 				currentBit++;
 			}
 		}
@@ -173,24 +193,17 @@ void canInterrupt()
 	canReceived = true;
 }
 
-void setChannelStatus()
-{
-	digitalWrite(LATCH_PIN, LOW);
-	shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, channel.statusByte[1]);
-	shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, channel.statusByte[0]);
-	digitalWrite(LATCH_PIN, HIGH);
-}
 
 
 void canRead()
 {
 	if (mcp2515.readMessage(&canData) == MCP2515::ERROR_OK) {
 		if (canData.can_id >= FIRST_CH && canData.can_id <= LAST_CH){
-			channel.status ^= 1UL << (canData.can_id - FIRST_CH);
+			channelStatus ^= bit(canData.can_id - FIRST_CH);
 
 		} else {
-			if (canData.can_id = 0xF0 + HEAD_NUMBER){
-				channel.status = 0;
+			if (canData.can_id == 0xF0 + HEAD_NUMBER){
+				channelStatus = 0;
 			}
 		}
 		changeChannelStatus = true;
@@ -209,9 +222,11 @@ void loop() {
 		canReceived = false;
 		canRead();
 	}
+
+
 	if (changeChannelStatus){
 		changeChannelStatus = false;
-		setChannelStatus();
+		setChannelStatus(&channelStatus);
 	}
 
 }
