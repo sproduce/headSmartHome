@@ -80,8 +80,13 @@ void buttonsInit() {
 
 
 void setup() {
-	//Serial.begin(9600);
-
+//	Serial.begin(9600);
+//uint8_t lastVal;
+//	for(;;){
+//		lastVal = millis();
+//		delay(152);
+//		Serial.println(uint8_t(millis() - lastVal));
+//	}
 
 	shiftRegisterInit();
 	buttonsInit();
@@ -204,6 +209,7 @@ void canRead()
 		if (canData.can_id >= FIRST_CH && canData.can_id <= LAST_CH){
 			channelStatus ^= bit(canData.can_id - FIRST_CH);
 			channelStatus |= bit(15);// set ON last channel
+			allOffStatus = channelStatus;
 		} else {
 			if (canData.can_id == 0xF0 + HEAD_NUMBER){
 				if (tmpDuration.duration > 3000){
