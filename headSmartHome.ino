@@ -189,8 +189,12 @@ void canRead()
 			allOffStatus = channelStatus;
 		} else {
 			if (canData.can_id == 0xF0 + HEAD_NUMBER){
-					statusChange[16] = millis();
+				if (millis() - statusChange[16] < 4000){
+					channelStatus = allOffStatus;
+				} else {
 					channelStatus = 0;
+				}
+				statusChange[16] = millis();
 			}
 		}
 		changeChannelStatus = true;
