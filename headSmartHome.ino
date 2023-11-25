@@ -64,10 +64,9 @@ void setup() {
 		statusChange[forI] = 0;
 		statusOnDelay[forI] = 0;
 	}
-	statusOnDelay[12] = 300;
-	statusOnDelay[13] = 300;
+	statusOnDelay[13] = 500;
+	statusOnDelay[14] = 500;
 
-	//Serial.begin(9600);
 	shiftRegisterInit();
 	buttonsInit();
 	pinMode(2, INPUT_PULLUP);
@@ -80,6 +79,7 @@ void setup() {
 
 	if (!digitalRead(RESET_BUTTON)){
 		sendResetMessage();
+		delay(2);
 		setupEndpoint();
 	}
 	attachInterrupt(0, canInterrupt, FALLING);
@@ -95,7 +95,7 @@ void sendResetMessage(void)
 	mcp2515.sendMessage(&canData);
 }
 
-void sendByteMessage(unsigned canId, uint8_t canDataByte) {
+void sendByteMessage(uint8_t canId, uint8_t canDataByte) {
 	canData.can_id = canId;
 	canData.can_dlc = 1;
 	canData.data[0] = canDataByte;
@@ -177,22 +177,36 @@ void canInterrupt()
 
 
 
+
+void toggleChannel(uint8_t channel)
+{
+	statusChange[channel] = millis();
+	bitToggle(channelStatus, channel);
+	bitSet(channelStatus, 15);// set ON last channel
+}
+
+
+
+void OffChanel(uint8_t channel)
+{
+
+}
+
+
 void canRead()
 {
 	uint8_t changeBit;
 	if (mcp2515.readMessage(&canData) == MCP2515::ERROR_OK) {
 		if (canData.can_id >= FIRST_CH && canData.can_id <= LAST_CH){
 			changeBit = canData.can_id - FIRST_CH;
-			statusChange[changeBit] = millis();
-			bitToggle(channelStatus, changeBit);
-			bitSet(channelStatus, 15);// set ON last channel
-			allOffStatus = channelStatus;
+			toggleChannel(changeBit);
 		} else {
 			if (canData.can_id == 0xF0 + HEAD_NUMBER){
-				if (millis() - statusChange[16] < 4000){
-					channelStatus = allOffStatus;
-				} else {
+				if (channelStatus || millis() - statusChange[16] > 6000){
+					allOffStatus = channelStatus;
 					channelStatus = 0;
+				} else {
+					channelStatus = allOffStatus;
 				}
 				statusChange[16] = millis();
 			}

@@ -2,7 +2,7 @@
 //This is a automatic generated file
 //Please do not modify this file
 //If you touch this file your change will be overwritten during the next build
-//This file has been generated on 2023-11-19 00:40:58
+//This file has been generated on 2023-11-26 00:03:08
 
 #include "Arduino.h"
 #include "Arduino.h"
@@ -27,10 +27,12 @@ extern uint32_t lastChannelStatusUpdate;
 void buttonsInit() ;
 void setup() ;
 void sendResetMessage(void) ;
-void sendByteMessage(unsigned canId, uint8_t canDataByte) ;
+void sendByteMessage(uint8_t canId, uint8_t canDataByte) ;
 bool setupEndpoint() ;
 bool buttonRead(struct button *currentButton) ;
 void canInterrupt() ;
+void toggleChannel(uint8_t channel) ;
+void OffChanel(uint8_t channel) ;
 void canRead() ;
 void loop() ;
 
