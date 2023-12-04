@@ -2,9 +2,8 @@
 //This is a automatic generated file
 //Please do not modify this file
 //If you touch this file your change will be overwritten during the next build
-//This file has been generated on 2023-11-26 00:03:08
+//This file has been generated on 2023-12-05 02:54:18
 
-#include "Arduino.h"
 #include "Arduino.h"
 #include <mcp2515.h>
 #include <stdint.h>
@@ -25,6 +24,7 @@ extern uint32_t lastChannelStatusUpdate;
 #include "channelStatus.h"
 
 void buttonsInit() ;
+void clearCan();
 void setup() ;
 void sendResetMessage(void) ;
 void sendByteMessage(uint8_t canId, uint8_t canDataByte) ;

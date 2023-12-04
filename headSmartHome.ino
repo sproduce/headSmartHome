@@ -1,4 +1,3 @@
-#include "Arduino.h"
 #include <mcp2515.h>
 #include <stdint.h>
 
@@ -59,11 +58,20 @@ void buttonsInit() {
 }
 
 
+
+void clearCan(){
+  mcp2515.clearRXnOVR();
+  mcp2515.clearMERR();
+  mcp2515.clearInterrupts();
+}
+
+
 void setup() {
 	for(forI = 0;forI<CHANNELS + 1;forI++){
 		statusChange[forI] = 0;
 		statusOnDelay[forI] = 0;
 	}
+  statusOnDelay[12] = 1200000;
 	statusOnDelay[13] = 500;
 	statusOnDelay[14] = 500;
 
@@ -72,7 +80,7 @@ void setup() {
 	pinMode(2, INPUT_PULLUP);
 
 	mcp2515.reset();
-	mcp2515.setBitrate(CAN_250KBPS);
+	mcp2515.setBitrate(CAN_80KBPS);
 	mcp2515.setNormalMode();
 
 	changeChannelStatus = true;
@@ -101,6 +109,10 @@ void sendByteMessage(uint8_t canId, uint8_t canDataByte) {
 	canData.data[0] = canDataByte;
 	mcp2515.sendMessage(&canData);
 }
+
+
+
+
 
 
 bool setupEndpoint()
@@ -196,18 +208,20 @@ void OffChanel(uint8_t channel)
 void canRead()
 {
 	uint8_t changeBit;
-	if (mcp2515.readMessage(&canData) == MCP2515::ERROR_OK) {
+	while (mcp2515.readMessage(&canData) == MCP2515::ERROR_OK) {
 		if (canData.can_id >= FIRST_CH && canData.can_id <= LAST_CH){
 			changeBit = canData.can_id - FIRST_CH;
 			toggleChannel(changeBit);
 		} else {
 			if (canData.can_id == 0xF0 + HEAD_NUMBER){
-				if (channelStatus || millis() - statusChange[16] > 6000){
+
+          if (channelStatus || millis() - statusChange[16] > 6000){
 					allOffStatus = channelStatus;
 					channelStatus = 0;
 				} else {
 					channelStatus = allOffStatus;
 				}
+        clearCan();
 				statusChange[16] = millis();
 			}
 		}
@@ -224,10 +238,10 @@ uint8_t channel;
 
 void loop() {
 
-	if (canReceived){
-		canReceived = false;
+	//if (canReceived){
+	//	canReceived = false;
 		canRead();
-	}
+	//}
 
 
 	if (changeChannelStatus){
@@ -242,6 +256,7 @@ void loop() {
 			firstChange = true;
 			setChannelStatus(&channelStatus);
 		}
+   clearCan();
 	}
 
 	buttonRead(&buttons[0]);
@@ -264,4 +279,3 @@ void loop() {
 
 
 }
-
