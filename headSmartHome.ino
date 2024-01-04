@@ -71,16 +71,17 @@ void setup() {
 		statusChange[forI] = 0;
 		statusOnDelay[forI] = 0;
 	}
-  statusOnDelay[12] = 1200000;
-	statusOnDelay[13] = 500;
+
+	statusOnDelay[13] = 2400000;
 	statusOnDelay[14] = 500;
+	statusOnDelay[15] = 500;
 
 	shiftRegisterInit();
 	buttonsInit();
 	pinMode(2, INPUT_PULLUP);
 
 	mcp2515.reset();
-	mcp2515.setBitrate(CAN_80KBPS);
+	mcp2515.setBitrate(CAN_125KBPS);
 	mcp2515.setNormalMode();
 
 	changeChannelStatus = true;
@@ -194,7 +195,7 @@ void toggleChannel(uint8_t channel)
 {
 	statusChange[channel] = millis();
 	bitToggle(channelStatus, channel);
-	bitSet(channelStatus, 15);// set ON last channel
+	bitSet(channelStatus, 0);// set ON last channel
 }
 
 
@@ -238,10 +239,11 @@ uint8_t channel;
 
 void loop() {
 
-	//if (canReceived){
-	//	canReceived = false;
+	if (canReceived){
+		canReceived = false;
 		canRead();
-	//}
+		mcp2515.clearInterrupts();
+	}
 
 
 	if (changeChannelStatus){
@@ -256,7 +258,6 @@ void loop() {
 			firstChange = true;
 			setChannelStatus(&channelStatus);
 		}
-   clearCan();
 	}
 
 	buttonRead(&buttons[0]);
