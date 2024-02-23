@@ -3,8 +3,8 @@
 
 #define DEBUG 1
 
-#define CHANNELS 16
-#define HEAD_NUMBER 1
+#define CHANNELS 32
+#define HEAD_NUMBER 1 //ODD number only MAX value 13
 
 
 
@@ -26,7 +26,7 @@ struct button {
 } buttons[COUNT_BUTTONS];
 
 
-uint16_t channelStatus=0, allOffStatus = 0;
+uint32_t channelStatus=0, allOffStatus = 0;
 uint32_t lastChannelStatusUpdate = 0;
 
 
@@ -72,7 +72,7 @@ void setup() {
 		statusOnDelay[forI] = 0;
 	}
 
-	statusOnDelay[13] = 2400000;
+	statusOnDelay[5] = 2400000;
 	statusOnDelay[14] = 500;
 	statusOnDelay[15] = 500;
 
@@ -81,7 +81,7 @@ void setup() {
 	pinMode(2, INPUT_PULLUP);
 
 	mcp2515.reset();
-	mcp2515.setBitrate(CAN_125KBPS);
+	mcp2515.setBitrate(CAN_125KBPS,MCP_8MHZ);
 	mcp2515.setNormalMode();
 
 	changeChannelStatus = true;
@@ -92,6 +92,7 @@ void setup() {
 		setupEndpoint();
 	}
 	attachInterrupt(0, canInterrupt, FALLING);
+	Serial.begin(9600);
 }
 
 
@@ -125,7 +126,7 @@ bool setupEndpoint()
 	{
 		if (buttonRead(&buttons[0]) && buttons[0].status) {
 			channelStatus = 0;
-			if (currentBit > 16){ // end learn endPoint
+			if (currentBit > 24){ // end learn endPoint
 				setChannelStatus(&channelStatus);
 				canData.can_id = 0x707;
 				canData.can_dlc = 1;
@@ -137,7 +138,7 @@ bool setupEndpoint()
 
 				return 1;
 			}
-			if (currentBit < 16){
+			if (currentBit < 24){
 				channelStatus = bit(currentBit);
 				canData.can_id = 0x700;
 				canData.can_dlc = 1;
@@ -191,38 +192,39 @@ void canInterrupt()
 
 
 
-void toggleChannel(uint8_t channel)
+void setChannel(uint8_t channel)
 {
-	statusChange[channel] = millis();
-	bitToggle(channelStatus, channel);
-	bitSet(channelStatus, 0);// set ON last channel
+
+
 }
 
 
-
-void OffChanel(uint8_t channel)
-{
-
-}
 
 
 void canRead()
 {
-	uint8_t changeBit;
+	uint8_t changeBit,status;
 	while (mcp2515.readMessage(&canData) == MCP2515::ERROR_OK) {
 		if (canData.can_id >= FIRST_CH && canData.can_id <= LAST_CH){
 			changeBit = canData.can_id - FIRST_CH;
-			toggleChannel(changeBit);
+			status = canData.data[0];
+			Serial.println(status);
+			if (status > 1){
+				bitToggle(channelStatus, changeBit);
+			} else {
+				bitWrite(channelStatus, changeBit, status);
+			}
+			statusChange[changeBit] = millis();
+			bitSet(channelStatus, 0);// set ON first channel
 		} else {
 			if (canData.can_id == 0xF0 + HEAD_NUMBER){
 
-          if (channelStatus || millis() - statusChange[16] > 6000){
+				if (channelStatus || millis() - statusChange[16] > 6000){
 					allOffStatus = channelStatus;
 					channelStatus = 0;
 				} else {
 					channelStatus = allOffStatus;
 				}
-        clearCan();
 				statusChange[16] = millis();
 			}
 		}

@@ -2,19 +2,19 @@
 //This is a automatic generated file
 //Please do not modify this file
 //If you touch this file your change will be overwritten during the next build
-//This file has been generated on 2024-01-05 01:44:26
+//This file has been generated on 2024-02-23 01:40:58
 
 #include "Arduino.h"
 #include <mcp2515.h>
 #include <stdint.h>
 #define DEBUG 1
-#define CHANNELS 16
+#define CHANNELS 32
 #define HEAD_NUMBER 1
 #define FIRST_CH  HEAD_NUMBER * 16
 #define LAST_CH  FIRST_CH + CHANNELS
 #define RESET_BUTTON 3
 #define COUNT_BUTTONS 1
-extern uint16_t channelStatus;
+extern uint32_t channelStatus;
 extern uint32_t lastChannelStatusUpdate;
 #define LATCH_PIN 16
 #define DATA_PIN 19
@@ -31,8 +31,7 @@ void sendByteMessage(uint8_t canId, uint8_t canDataByte) ;
 bool setupEndpoint() ;
 bool buttonRead(struct button *currentButton) ;
 void canInterrupt() ;
-void toggleChannel(uint8_t channel) ;
-void OffChanel(uint8_t channel) ;
+void setChannel(uint8_t channel) ;
 void canRead() ;
 void loop() ;
 

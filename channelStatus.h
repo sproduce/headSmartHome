@@ -21,12 +21,14 @@ void shiftRegisterInit() {
 	digitalWrite(OE_PIN, LOW);
 }
 
-void setChannelStatus(const uint16_t *channel)
+void setChannelStatus(const uint32_t *channel)
 {
 	digitalWrite(LATCH_PIN, LOW);
+	tmpByte = *channel >> 16;
+	shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, tmpByte);
 	tmpByte = *channel >> 8;
 	shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, tmpByte);
-	tmpByte = *channel & 0xFF;
+//	tmpByte = *channel & 0xFF;
 	shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, *channel);
 	digitalWrite(LATCH_PIN, HIGH);
 }
