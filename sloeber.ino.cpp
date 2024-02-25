@@ -2,13 +2,13 @@
 //This is a automatic generated file
 //Please do not modify this file
 //If you touch this file your change will be overwritten during the next build
-//This file has been generated on 2024-02-23 01:40:58
+//This file has been generated on 2024-02-24 21:42:27
 
 #include "Arduino.h"
 #include <mcp2515.h>
 #include <stdint.h>
 #define DEBUG 1
-#define CHANNELS 32
+#define CHANNELS 16
 #define HEAD_NUMBER 1
 #define FIRST_CH  HEAD_NUMBER * 16
 #define LAST_CH  FIRST_CH + CHANNELS

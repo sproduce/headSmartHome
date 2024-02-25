@@ -3,7 +3,8 @@
 
 #define DEBUG 1
 
-#define CHANNELS 32
+//#define CHANNELS 32
+#define CHANNELS 16
 #define HEAD_NUMBER 1 //ODD number only MAX value 13
 
 
@@ -92,7 +93,6 @@ void setup() {
 		setupEndpoint();
 	}
 	attachInterrupt(0, canInterrupt, FALLING);
-	Serial.begin(9600);
 }
 
 
@@ -126,7 +126,7 @@ bool setupEndpoint()
 	{
 		if (buttonRead(&buttons[0]) && buttons[0].status) {
 			channelStatus = 0;
-			if (currentBit > 24){ // end learn endPoint
+			if (currentBit > CHANNELS){ // end learn endPoint
 				setChannelStatus(&channelStatus);
 				canData.can_id = 0x707;
 				canData.can_dlc = 1;
@@ -138,7 +138,7 @@ bool setupEndpoint()
 
 				return 1;
 			}
-			if (currentBit < 24){
+			if (currentBit < CHANNELS){
 				channelStatus = bit(currentBit);
 				canData.can_id = 0x700;
 				canData.can_dlc = 1;
@@ -208,7 +208,6 @@ void canRead()
 		if (canData.can_id >= FIRST_CH && canData.can_id <= LAST_CH){
 			changeBit = canData.can_id - FIRST_CH;
 			status = canData.data[0];
-			Serial.println(status);
 			if (status > 1){
 				bitToggle(channelStatus, changeBit);
 			} else {
