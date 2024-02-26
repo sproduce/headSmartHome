@@ -5,7 +5,7 @@
 
 //#define CHANNELS 32
 #define CHANNELS 16
-#define HEAD_NUMBER 1 //ODD number only MAX value 13
+#define HEAD_NUMBER 1
 
 
 
