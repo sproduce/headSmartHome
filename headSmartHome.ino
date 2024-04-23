@@ -18,8 +18,8 @@
 
 
 
-#define TEST_ATTEMPTS 10;
-#define TEST_DELAY 500
+#define TEST_ATTEMPTS 20
+#define TEST_DELAY 2000
 
 
 
@@ -199,7 +199,6 @@ void canRead()
 void testProgram()
 {
 	uint8_t countTest = 1;
-	//uint8_t countDelay = 1;
 
 	uint32_t lastChange = millis();
 
@@ -226,7 +225,7 @@ void testProgram()
 		}
 
 
-		if (countTest == 50) {break;}
+		if (countTest == TEST_ATTEMPTS){break;}
 		if (buttonRead(&buttons[0])){break;}
 	}
 	channelStatus = 0;
@@ -290,8 +289,8 @@ void loop() {
 
 	buttonRead(&buttons[0]);
 	if (buttons[0].status && millis() - buttons[0].startTime >6000){
-		setStatusNew(STATUS_NEW_BYTE);
 		setupEndpoint();
+		setStatusNew(STATUS_NEW_BYTE);
 	}
 
 	for (channel = 0;channel < CHANNELS; channel++){
