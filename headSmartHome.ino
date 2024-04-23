@@ -1,17 +1,25 @@
 #include <mcp2515.h>
 #include <stdint.h>
+#include <EEPROM.h>
 
-#define DEBUG 1
 
-//#define CHANNELS 32
-#define CHANNELS 16
+#define LISTEN_CHANNELS 32
+#define CHANNELS 24 //count of shift register output
+
 #define HEAD_NUMBER 1 //ODD number only MAX value 13
 
 
-
+#define CHANGE_STATUS_DELAY 100
 
 #define FIRST_CH  HEAD_NUMBER * 16
 #define LAST_CH  FIRST_CH + CHANNELS
+
+#define STATUS_NEW_BYTE 1
+
+
+
+#define TEST_ATTEMPTS 10;
+#define TEST_DELAY 500
 
 
 
@@ -27,31 +35,29 @@ struct button {
 } buttons[COUNT_BUTTONS];
 
 
-uint32_t channelStatus=0, allOffStatus = 0;
-uint32_t lastChannelStatusUpdate = 0;
+uint32_t channelStatus = 0, lastChannelStatus = 0, allOffStatus = 0;
 
 
-#if DEBUG == 0
-	#include "channelStatusDebug.h"
-#else
 	#define LATCH_PIN 16 //A2
 	#define DATA_PIN 19 //A5
 	#define CLOCK_PIN 17 //A3
 	#define CLEAR_PIN 15 //A1
 	#define OE_PIN 18 //A4
-	#include "channelStatus.h"
-#endif
 
+
+	#include "channelStatus.h"
+
+	#include "libEeprom.h"
 
 MCP2515 mcp2515(10);
 can_frame canData;
 
 volatile bool canReceived = false;
-volatile bool changeChannelStatus = false;
 
 uint32_t statusChange[CHANNELS + 1];
 uint32_t statusOnDelay[CHANNELS + 1];
 uint8_t forI;
+uint8_t statusNew;
 
 void buttonsInit() {
 	pinMode(RESET_BUTTON,INPUT_PULLUP);
@@ -67,33 +73,7 @@ void clearCan(){
 }
 
 
-void setup() {
-	for(forI = 0;forI<CHANNELS + 1;forI++){
-		statusChange[forI] = 0;
-		statusOnDelay[forI] = 0;
-	}
 
-	statusOnDelay[5] = 2400000;
-	statusOnDelay[14] = 500;
-	statusOnDelay[15] = 500;
-
-	shiftRegisterInit();
-	buttonsInit();
-	pinMode(2, INPUT_PULLUP);
-
-	mcp2515.reset();
-	mcp2515.setBitrate(CAN_125KBPS,MCP_8MHZ);
-	mcp2515.setNormalMode();
-
-	changeChannelStatus = true;
-
-	if (!digitalRead(RESET_BUTTON)){
-		sendResetMessage();
-		delay(2);
-		setupEndpoint();
-	}
-	attachInterrupt(0, canInterrupt, FALLING);
-}
 
 
 
@@ -105,7 +85,7 @@ void sendResetMessage(void)
 	mcp2515.sendMessage(&canData);
 }
 
-void sendByteMessage(uint8_t canId, uint8_t canDataByte) {
+void sendByteMessage(uint8_t canId, uint8_t canDataByte = 1) {
 	canData.can_id = canId;
 	canData.can_dlc = 1;
 	canData.data[0] = canDataByte;
@@ -124,18 +104,16 @@ bool setupEndpoint()
 	buttons[0].startTime = 0;
 	for(;;)
 	{
+		updateChannel(&channelStatus, &lastChannelStatus);
+
 		if (buttonRead(&buttons[0]) && buttons[0].status) {
 			channelStatus = 0;
 			if (currentBit > CHANNELS){ // end learn endPoint
-				setChannelStatus(&channelStatus);
 				canData.can_id = 0x707;
 				canData.can_dlc = 1;
 				canData.data[0] = 1;// can message cannot be empty
 				mcp2515.sendMessage(&canData);
-				mcp2515.clearRXnOVR();
-				mcp2515.clearMERR();
-				mcp2515.clearInterrupts();
-
+				clearCan();
 				return 1;
 			}
 			if (currentBit < CHANNELS){
@@ -144,15 +122,14 @@ bool setupEndpoint()
 				canData.can_dlc = 1;
 				canData.data[0] = FIRST_CH + currentBit;
 				mcp2515.sendMessage(&canData);
-			} else {// currentBit = 16
-				channelStatus = 0xFFFF;
+			} else {// currentBit = CHANNELS
+				channelStatus = pow(2,CHANNELS)-1;
 				canData.can_id = 0x700;
 				canData.can_dlc = 1;
-				canData.data[0] = 0xf0 + HEAD_NUMBER;
+				canData.data[0] = 0xF0 + HEAD_NUMBER;
 				mcp2515.sendMessage(&canData);
 			}
-			setChannelStatus(&channelStatus);
-			currentBit++;
+				currentBit++;
 		}
 	}
 }
@@ -190,17 +167,6 @@ void canInterrupt()
 }
 
 
-
-
-void setChannel(uint8_t channel)
-{
-
-
-}
-
-
-
-
 void canRead()
 {
 	uint8_t changeBit,status;
@@ -227,14 +193,88 @@ void canRead()
 				statusChange[16] = millis();
 			}
 		}
-		changeChannelStatus = true;
 	}
+}
+
+void testProgram()
+{
+	uint8_t countTest = 1;
+	//uint8_t countDelay = 1;
+
+	uint32_t lastChange = millis();
+
+
+	channelStatus = 1;
+
+	for(;;){
+
+		if (millis() - lastChange > TEST_DELAY * countTest){
+			lastChange = millis();
+			updateChannel(&channelStatus, &lastChannelStatus);
+			channelStatus <<=1;
+//			if (countTest%2 == 0){
+//				channelStatus |= 1;
+//			}
+
+			if (bitRead(channelStatus, CHANNELS)){
+//				if (countTest%2 == 0){
+//					countDelay++;
+//				}
+				channelStatus = 1;
+				countTest++;
+			}
+		}
+
+
+		if (countTest == 50) {break;}
+		if (buttonRead(&buttons[0])){break;}
+	}
+	channelStatus = 0;
+	updateChannel(&channelStatus, &lastChannelStatus);
 }
 
 
 
 
-bool firstChange = true; //for cache can input
+
+void setup() {
+	//Serial.begin(9600);
+	for(forI = 0;forI<CHANNELS + 1;forI++){
+		statusChange[forI] = 0;
+		statusOnDelay[forI] = 0;
+	}
+
+	statusOnDelay[5] = 2400000;
+	statusOnDelay[14] = 500;
+	statusOnDelay[15] = 500;
+
+	shiftRegisterInit();
+	buttonsInit();
+	pinMode(2, INPUT_PULLUP);
+
+	mcp2515.reset();
+	mcp2515.setBitrate(CAN_125KBPS,MCP_8MHZ);
+	mcp2515.setNormalMode();
+	attachInterrupt(0, canInterrupt, FALLING);
+
+	if (!digitalRead(RESET_BUTTON)){
+		sendResetMessage();
+		clearEeprom();
+	}
+
+	statusNew = !getStatusNew(STATUS_NEW_BYTE);
+
+	if (statusNew){
+		delay(100); //cache shift register write
+		testProgram();
+	}
+
+
+}
+
+
+
+
 uint8_t channel;
 
 
@@ -246,23 +286,11 @@ void loop() {
 		mcp2515.clearInterrupts();
 	}
 
-
-	if (changeChannelStatus){
-		if (firstChange){
-			firstChange = false;
-			lastChannelStatusUpdate = millis();
-		}
-		if (millis() - lastChannelStatusUpdate >100)
-		{
-			lastChannelStatusUpdate = millis();
-			changeChannelStatus = false;
-			firstChange = true;
-			setChannelStatus(&channelStatus);
-		}
-	}
+	updateChannel(&channelStatus, &lastChannelStatus);
 
 	buttonRead(&buttons[0]);
 	if (buttons[0].status && millis() - buttons[0].startTime >6000){
+		setStatusNew(STATUS_NEW_BYTE);
 		setupEndpoint();
 	}
 
@@ -270,7 +298,6 @@ void loop() {
 		if (bitRead(channelStatus, channel)){ // is channel ON
 			if (statusOnDelay[channel] && (millis() - statusChange[channel] > statusOnDelay[channel])){
 				bitClear(channelStatus, channel);
-				changeChannelStatus = true;
 			}
 		} else {//channel OFF
 
