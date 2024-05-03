@@ -2,7 +2,7 @@
 //This is a automatic generated file
 //Please do not modify this file
 //If you touch this file your change will be overwritten during the next build
-//This file has been generated on 2024-04-23 23:14:41
+//This file has been generated on 2024-05-03 22:49:29
 
 #include "Arduino.h"
 #include <mcp2515.h>
@@ -11,7 +11,7 @@
 #define LISTEN_CHANNELS 32
 #define CHANNELS 24
 #define HEAD_NUMBER 1
-#define CHANGE_STATUS_DELAY 100
+#define CHANGE_STATUS_DELAY 50
 #define FIRST_CH  HEAD_NUMBER * 16
 #define LAST_CH  FIRST_CH + CHANNELS
 #define STATUS_NEW_BYTE 1

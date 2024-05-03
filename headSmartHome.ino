@@ -9,7 +9,7 @@
 #define HEAD_NUMBER 1 //ODD number only MAX value 13
 
 
-#define CHANGE_STATUS_DELAY 100
+#define CHANGE_STATUS_DELAY 50
 
 #define FIRST_CH  HEAD_NUMBER * 16
 #define LAST_CH  FIRST_CH + CHANNELS
@@ -183,14 +183,13 @@ void canRead()
 			bitSet(channelStatus, 0);// set ON first channel
 		} else {
 			if (canData.can_id == 0xF0 + HEAD_NUMBER){
-
-				if (channelStatus || millis() - statusChange[16] > 6000){
+				if (channelStatus || millis() - statusChange[CHANNELS] > 6000){
 					allOffStatus = channelStatus;
 					channelStatus = 0;
 				} else {
 					channelStatus = allOffStatus;
 				}
-				statusChange[16] = millis();
+				statusChange[CHANNELS] = millis();
 			}
 		}
 	}
@@ -237,7 +236,6 @@ void testProgram()
 
 
 void setup() {
-	//Serial.begin(9600);
 	for(forI = 0;forI<CHANNELS + 1;forI++){
 		statusChange[forI] = 0;
 		statusOnDelay[forI] = 0;
