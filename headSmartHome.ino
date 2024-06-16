@@ -3,8 +3,8 @@
 #include <EEPROM.h>
 
 
-#define LISTEN_CHANNELS 32
-#define CHANNELS 24 //count of shift register output
+#define LISTEN_CHANNELS 16
+#define CHANNELS 16 //count of shift register output
 
 #define HEAD_NUMBER 1 //ODD number only MAX value 13
 
@@ -14,13 +14,12 @@
 #define FIRST_CH  HEAD_NUMBER * 16
 #define LAST_CH  FIRST_CH + CHANNELS
 
-#define STATUS_NEW_BYTE 1
+#define STATUS_NEW_BYTE 1 // EEPROM address save status clear byte
 
 
 
 #define TEST_ATTEMPTS 20
 #define TEST_DELAY 2000
-
 
 
 #define RESET_BUTTON 3

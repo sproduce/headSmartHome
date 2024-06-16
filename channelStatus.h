@@ -47,14 +47,20 @@ void setChannelStatus(const uint32_t *channel, uint32_t *lastChannel){
 void updateChannel(uint32_t *channelStatus, uint32_t *lastChannelStatus){
 
 	if (*channelStatus != *lastChannelStatus && millis() - channelStatusUpdate >50){
+
 		switch (*channelStatus)
 		{
 			case 0:
-				for (int8_t i = 0; i < CHANNELS; i++){
-					bitClear(*lastChannelStatus, i);
-					setChannelStatus(lastChannelStatus, lastChannelStatus);
-					delay(CHANGE_STATUS_DELAY);
+				if (*lastChannelStatus == pow(2,CHANNELS)-1){
+					for (int8_t i = 0; i < CHANNELS; i++){
+						bitClear(*lastChannelStatus, i);
+						setChannelStatus(lastChannelStatus, lastChannelStatus);
+						delay(CHANGE_STATUS_DELAY);
+					}
+				} else {
+					setChannelStatus(channelStatus, lastChannelStatus);
 				}
+
 			break;
 			case uint32_t(pow(2,CHANNELS)-1):
 					for (int8_t i = CHANNELS -1; i >= 0; i--){
