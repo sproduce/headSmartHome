@@ -2,21 +2,21 @@
 //This is a automatic generated file
 //Please do not modify this file
 //If you touch this file your change will be overwritten during the next build
-//This file has been generated on 2024-06-17 00:27:43
+//This file has been generated on 2024-07-20 00:33:42
 
 #include "Arduino.h"
 #include <mcp2515.h>
 #include <stdint.h>
 #include <EEPROM.h>
-#define LISTEN_CHANNELS 16
-#define CHANNELS 16
+#define LISTEN_CHANNELS 32
+#define CHANNELS 24
 #define HEAD_NUMBER 1
 #define CHANGE_STATUS_DELAY 50
-#define FIRST_CH  HEAD_NUMBER * 16
+#define FIRST_CH  HEAD_NUMBER * LISTEN_CHANNELS
 #define LAST_CH  FIRST_CH + CHANNELS
 #define STATUS_NEW_BYTE 1
 #define TEST_ATTEMPTS 20
-#define TEST_DELAY 2000
+#define TEST_DELAY 3000
 #define RESET_BUTTON 3
 #define COUNT_BUTTONS 1
 extern uint32_t channelStatus;

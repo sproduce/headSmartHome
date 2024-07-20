@@ -46,8 +46,8 @@ void setChannelStatus(const uint32_t *channel, uint32_t *lastChannel){
 
 void updateChannel(uint32_t *channelStatus, uint32_t *lastChannelStatus){
 
-	if (*channelStatus != *lastChannelStatus && millis() - channelStatusUpdate >50){
-
+	if (*channelStatus != *lastChannelStatus && (millis() - channelStatusUpdate > 10)){
+		Serial.println(*channelStatus);
 		switch (*channelStatus)
 		{
 			case 0:
