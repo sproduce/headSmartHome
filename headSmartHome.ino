@@ -179,7 +179,8 @@ void canRead()
 				bitWrite(channelStatus, changeBit, status);
 			}
 			statusChange[changeBit] = millis();
-			bitSet(channelStatus, 0);// set ON first channel
+			bitSet(channelStatus, 2);// set always ON channel
+			bitSet(channelStatus, 7);// set always ON channel
 		} else {
 			if (canData.can_id == 0xF0 + HEAD_NUMBER){
 				if (channelStatus || millis() - statusChange[CHANNELS] > 6000){
@@ -239,9 +240,9 @@ void setup() {
 		statusOnDelay[forI] = 0;
 	}
 
-	//statusOnDelay[5] = 2400000;
-	//statusOnDelay[14] = 500;
-	//statusOnDelay[15] = 500;
+	statusOnDelay[8] = 2400000;
+	statusOnDelay[16] = 500;
+	statusOnDelay[17] = 500;
 
 	shiftRegisterInit();
 	buttonsInit();
