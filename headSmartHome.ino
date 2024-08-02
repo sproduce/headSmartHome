@@ -239,9 +239,12 @@ void setup() {
 		statusOnDelay[forI] = 0;
 	}
 
-	//statusOnDelay[5] = 2400000;
-	//statusOnDelay[14] = 500;
-	//statusOnDelay[15] = 500;
+	statusOnDelay[8] = 2400000;
+	statusOnDelay[15] = 2400000;
+	statusOnDelay[16] = 500;
+	statusOnDelay[17] = 500;
+	statusOnDelay[18] = 500;
+	statusOnDelay[19] = 500;
 
 	shiftRegisterInit();
 	buttonsInit();
