@@ -207,7 +207,6 @@ void testProgram()
 
 		if (millis() - lastChange > TEST_DELAY * countTest){
 			lastChange = millis();
-			updateChannel(&channelStatus, &lastChannelStatus);
 			channelStatus <<=1;
 //			if (countTest%2 == 0){
 //				channelStatus |= 1;
@@ -221,7 +220,7 @@ void testProgram()
 				countTest++;
 			}
 		}
-
+		updateChannel(&channelStatus, &lastChannelStatus);
 
 		if (countTest == TEST_ATTEMPTS){break;}
 		if (buttonRead(&buttons[0])){break;}
@@ -289,7 +288,7 @@ void loop() {
 		setupEndpoint();
 		setStatusNew(STATUS_NEW_BYTE);
 	}
-
+// ToDo cancel if nothing to delay
 	for (channel = 0;channel < CHANNELS; channel++){
 		if (bitRead(channelStatus, channel)){ // is channel ON
 			if (statusOnDelay[channel] && (millis() - statusChange[channel] > statusOnDelay[channel])){

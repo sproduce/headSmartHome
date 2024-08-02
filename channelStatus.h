@@ -38,7 +38,7 @@ void setChannelStatus(const uint32_t *channel, uint32_t *lastChannel){
 			digitalWrite(CLOCK_PIN, LOW);
 		}
 		digitalWrite(LATCH_PIN, HIGH);
-		channelStatusUpdate = millis();
+		channelStatusUpdate = 0;
 		*lastChannel = *channel;
 }
 
@@ -46,8 +46,12 @@ void setChannelStatus(const uint32_t *channel, uint32_t *lastChannel){
 
 void updateChannel(uint32_t *channelStatus, uint32_t *lastChannelStatus){
 
-	if (*channelStatus != *lastChannelStatus && (millis() - channelStatusUpdate > 10)){
-		Serial.println(*channelStatus);
+	if (!channelStatusUpdate && *channelStatus != *lastChannelStatus){
+		channelStatusUpdate = millis();
+		return ;
+	}
+
+	if (channelStatusUpdate && (millis() - channelStatusUpdate > 20)){
 		switch (*channelStatus)
 		{
 			case 0:
