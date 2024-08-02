@@ -289,15 +289,15 @@ void loop() {
 		setStatusNew(STATUS_NEW_BYTE);
 	}
 // ToDo cancel if nothing to delay
-	for (channel = 0;channel < CHANNELS; channel++){
-		if (bitRead(channelStatus, channel)){ // is channel ON
-			if (statusOnDelay[channel] && (millis() - statusChange[channel] > statusOnDelay[channel])){
-				bitClear(channelStatus, channel);
-			}
-		} else {//channel OFF
-
-		}
-	}
+//	for (channel = 0;channel < CHANNELS; channel++){
+//		if (bitRead(channelStatus, channel)){ // is channel ON
+//			if (statusOnDelay[channel] && (millis() - statusChange[channel] > statusOnDelay[channel])){
+//				bitClear(channelStatus, channel);
+//			}
+//		} else {//channel OFF
+//
+//		}
+//	}
 
 
 
