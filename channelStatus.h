@@ -57,9 +57,11 @@ void updateChannel(uint32_t *channelStatus, uint32_t *lastChannelStatus){
 			case 0:
 				if (*lastChannelStatus == pow(2,CHANNELS)-1){
 					for (int8_t i = 0; i < CHANNELS; i++){
-						bitClear(*lastChannelStatus, i);
-						setChannelStatus(lastChannelStatus, lastChannelStatus);
-						delay(CHANGE_STATUS_DELAY);
+						if (bitRead(*lastChannelStatus, i)){
+							bitClear(*lastChannelStatus, i);
+							setChannelStatus(lastChannelStatus, lastChannelStatus);
+							delay(CHANGE_STATUS_DELAY);
+						}
 					}
 				} else {
 					setChannelStatus(channelStatus, lastChannelStatus);
