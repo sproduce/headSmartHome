@@ -16,10 +16,7 @@
 
 #define STATUS_NEW_BYTE 1 // EEPROM address save status clear byte
 
-
 #define DELAY_SEND_STATUS 30000 //30 sec update server status
-
-
 
 #define TEST_ATTEMPTS 20
 #define TEST_DELAY 3000
