@@ -3,17 +3,20 @@
 #include <EEPROM.h>
 
 
-#define LISTEN_CHANNELS 32
-#define CHANNELS 24 //count of shift register output
-
 #define HEAD_NUMBER 1 //MAX value 7
+
+#define LISTEN_CHANNELS 32
+
+#define SHIFT_REGISTER_COUNT 2  // possible value 2 or 3
+
+#define SHIFT_CH SHIFT_REGISTER_COUNT * 8
+
+#define FIRST_CH  (HEAD_NUMBER * 2 - 1) * 16
+#define LAST_CH  FIRST_CH + 31
+
 
 
 #define CHANGE_STATUS_DELAY 50
-
-#define FIRST_CH  (HEAD_NUMBER * 2 -1) * 16
-#define LAST_CH  FIRST_CH + CHANNELS
-
 #define STATUS_NEW_BYTE 1 // EEPROM address save status clear byte
 
 #define DELAY_SEND_STATUS 30000 //30 sec update server status
@@ -25,6 +28,19 @@
 #define RESET_BUTTON 3
 #define COUNT_BUTTONS 1
 
+
+
+
+#define LATCH_PIN 16 //A2
+#define DATA_PIN 19 //A5
+#define CLOCK_PIN 17 //A3
+#define CLEAR_PIN 15 //A1
+#define OE_PIN 18 //A4
+
+
+
+
+
 struct button {
 	uint8_t channel;
 	uint8_t status = 0;
@@ -33,11 +49,8 @@ struct button {
 	uint32_t lastDuration = 0;
 } buttons[COUNT_BUTTONS];
 
-typedef union channel_status
-{
-	uint32_t channelStatus;
-	uint8_t byteStatus[4];
-};
+#include "channelStatus.h"
+
 
 union channel_status channelStatus;
 
@@ -46,14 +59,10 @@ union channel_status channelStatus;
 uint32_t lastChannelStatus = 0, allOffStatus = 0, lastUpdate = 0;
 
 
-	#define LATCH_PIN 16 //A2
-	#define DATA_PIN 19 //A5
-	#define CLOCK_PIN 17 //A3
-	#define CLEAR_PIN 15 //A1
-	#define OE_PIN 18 //A4
 
 
-	#include "channelStatus.h"
+
+
 
 	#include "libEeprom.h"
 
@@ -62,8 +71,8 @@ can_frame canData;
 
 volatile bool canReceived = false;
 
-uint32_t statusChange[CHANNELS + 1];
-uint32_t statusOnDelay[CHANNELS + 1];
+uint32_t statusChange[LISTEN_CHANNELS];
+uint32_t statusOnDelay[LISTEN_CHANNELS];
 uint8_t forI;
 uint8_t statusNew;
 
@@ -79,9 +88,6 @@ void clearCan(){
   mcp2515.clearMERR();
   mcp2515.clearInterrupts();
 }
-
-
-
 
 
 
@@ -101,10 +107,6 @@ void sendByteMessage(uint8_t canId, uint8_t canDataByte = 1) {
 }
 
 
-
-
-
-
 bool setupEndpoint()
 {
 	uint8_t currentBit = 0;
@@ -112,11 +114,11 @@ bool setupEndpoint()
 	buttons[0].startTime = 0;
 	for(;;)
 	{
-		updateChannel(&channelStatus.channelStatus, &lastChannelStatus);
+		updateChannel(&channelStatus, &lastChannelStatus);
 
 		if (buttonRead(&buttons[0]) && buttons[0].status) {
 			channelStatus = {0};
-			if (currentBit > CHANNELS){ // end learn endPoint
+			if (currentBit > SHIFT_CH){ // end learn endPoint
 				canData.can_id = 0x707;
 				canData.can_dlc = 1;
 				canData.data[0] = 1;// can message cannot be empty
@@ -124,17 +126,17 @@ bool setupEndpoint()
 				clearCan();
 				return 1;
 			}
-			if (currentBit < CHANNELS){
+			if (currentBit < SHIFT_CH){
 				channelStatus.channelStatus = bit(currentBit);
 				canData.can_id = 0x700;
 				canData.can_dlc = 1;
 				canData.data[0] = FIRST_CH + currentBit;
 				mcp2515.sendMessage(&canData);
 			} else {// currentBit = CHANNELS
-				channelStatus.channelStatus = pow(2,CHANNELS)-1;
+				channelStatus.channelStatus = pow(2,SHIFT_CH)-1;
 				canData.can_id = 0x700;
 				canData.can_dlc = 1;
-				canData.data[0] = 0xF0 + HEAD_NUMBER;
+				canData.data[0] = LAST_CH;
 				mcp2515.sendMessage(&canData);
 			}
 				currentBit++;
@@ -163,7 +165,6 @@ bool buttonRead(struct button *currentButton) {
 		currentButton->changeTime = 0;
 	}
 
-
 	return false;
 }
 
@@ -177,43 +178,51 @@ void canInterrupt()
 
 void canRead()
 {
-	uint8_t changeBit,status;
+	uint8_t channelState,status;
 	while (mcp2515.readMessage(&canData) == MCP2515::ERROR_OK) {
 		if (canData.can_id >= FIRST_CH && canData.can_id <= LAST_CH){
-			changeBit = canData.can_id - FIRST_CH;
-			status = canData.data[0];
-			if (status > 1){
-				bitToggle(channelStatus.channelStatus, changeBit);
-			} else {
-				bitWrite(channelStatus.channelStatus, changeBit, status);
-			}
-			statusChange[changeBit] = millis();
-			bitSet(channelStatus.channelStatus, 0);// set ON first channel
-		} else {
-			if (canData.can_id == 0xF0 + HEAD_NUMBER){
-				if (channelStatus.channelStatus || millis() - statusChange[CHANNELS] > 6000){
-					allOffStatus = channelStatus.channelStatus;
-					channelStatus = {0};
+			channelState = canData.can_id - FIRST_CH;
+			if (channelState >=0 && channelState < SHIFT_CH){
+				bitClear(channelStatus.channelStatus, 31); // status ALL OFF
+				//bitSet(channelStatus.channelStatus, 0);// set ON first channel
+				status = canData.data[0];
+				if (status > 1){
+					bitToggle(channelStatus.channelStatus, channelState);
 				} else {
-					channelStatus.channelStatus = allOffStatus;
+					bitWrite(channelStatus.channelStatus, channelState, status);
 				}
-				statusChange[CHANNELS] = millis();
 			}
+			else {
+				switch (channelState)
+				{
+					case 31:
+						if (bitRead(channelStatus.channelStatus, channelState) && (millis() - statusChange[channelState] < 3000)){
+							channelStatus.channelStatus = allOffStatus;
+							if(channelStatus.byteStatus[0] || channelStatus.byteStatus[1] || channelStatus.byteStatus[2]){
+								bitClear(channelStatus.channelStatus, channelState);
+							}
+						} else {
+							allOffStatus = channelStatus.channelStatus;
+							channelStatus = {0};
+							bitSet(channelStatus.channelStatus, channelState);
+						}
+					break;
+				}
+			}
+			statusChange[channelState] = millis();
 		}
 	}
 }
 
-void testProgram()
+void testProgram() // add status exit for entering configure
 {
 	uint8_t countTest = 1;
 
 	uint32_t lastChange = millis();
 
-
 	channelStatus = {1};
 
 	for(;;){
-
 		if (millis() - lastChange > TEST_DELAY * countTest){
 			lastChange = millis();
 			channelStatus.channelStatus <<= 1;
@@ -221,7 +230,7 @@ void testProgram()
 //				channelStatus |= 1;
 //			}
 
-			if (bitRead(channelStatus.channelStatus, CHANNELS)){
+			if (bitRead(channelStatus.channelStatus, SHIFT_CH - 1)){
 //				if (countTest%2 == 0){
 //					countDelay++;
 //				}
@@ -229,13 +238,13 @@ void testProgram()
 				countTest++;
 			}
 		}
-		updateChannel(&channelStatus.channelStatus, &lastChannelStatus);
+		updateChannel(&channelStatus, &lastChannelStatus);
 
 		if (countTest == TEST_ATTEMPTS){break;}
 		if (buttonRead(&buttons[0])){break;}
 	}
 	channelStatus = {0};
-	updateChannel(&channelStatus.channelStatus, &lastChannelStatus);
+	updateChannel(&channelStatus, &lastChannelStatus);
 }
 
 
@@ -257,20 +266,15 @@ void sendChanelStatus()
 
 
 
-
-
 void setup() {
-	for(forI = 0;forI<CHANNELS + 1;forI++){
+	Serial.begin(9600);
+	for(forI = 0; forI < SHIFT_CH; forI++){
 		statusChange[forI] = 0;
 		statusOnDelay[forI] = 0;
 	}
 
-	statusOnDelay[8] = 2400000;
-	statusOnDelay[15] = 2400000;
-	statusOnDelay[16] = 500;
-	statusOnDelay[17] = 500;
-	statusOnDelay[18] = 500;
-	statusOnDelay[19] = 500;
+	statusOnDelay[14] = 500;
+	statusOnDelay[15] = 500;
 
 	shiftRegisterInit();
 	buttonsInit();
@@ -317,7 +321,7 @@ void loop() {
 	}
 
 
-	updateChannel(&channelStatus.channelStatus, &lastChannelStatus);
+	updateChannel(&channelStatus, &lastChannelStatus);
 
 	buttonRead(&buttons[0]);
 	if (buttons[0].status && millis() - buttons[0].startTime > 6000){
@@ -325,10 +329,11 @@ void loop() {
 		setStatusNew(STATUS_NEW_BYTE);
 	}
 // ToDo cancel if nothing to delay
-	for (channel = 0;channel < CHANNELS; channel++){
+	for (channel = 0; channel < SHIFT_CH; channel++){
 		if (bitRead(channelStatus.channelStatus, channel)){ // is channel ON
 			if (statusOnDelay[channel] && (millis() - statusChange[channel] > statusOnDelay[channel])){
 				bitClear(channelStatus.channelStatus, channel);
+				sendChanelStatus();
 			}
 		} else {//channel OFF
 
