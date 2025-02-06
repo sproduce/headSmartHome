@@ -2,7 +2,7 @@
 //This is a automatic generated file
 //Please do not modify this file
 //If you touch this file your change will be overwritten during the next build
-//This file has been generated on 2025-02-02 23:58:18
+//This file has been generated on 2025-02-07 01:03:10
 
 #include "Arduino.h"
 #include <mcp2515.h>
@@ -33,13 +33,13 @@ extern uint32_t lastChannelStatus;
 
 void buttonsInit() ;
 void clearCan();
+void sendChanelStatus() ;
 void sendResetMessage(void) ;
 bool setupEndpoint() ;
 bool buttonRead(struct button *currentButton) ;
 void canInterrupt() ;
 void canRead() ;
 void testProgram()  ;
-void sendChanelStatus() ;
 void setup() ;
 void loop() ;
 

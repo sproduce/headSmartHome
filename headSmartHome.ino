@@ -56,7 +56,7 @@ union channel_status channelStatus;
 
 
 
-uint32_t lastChannelStatus = 0, allOffStatus = 0, lastUpdate = 0;
+uint32_t lastChannelStatus = 0, allOffStatus = 0, lastUpdateCan = 0;
 
 
 
@@ -87,6 +87,22 @@ void clearCan(){
   mcp2515.clearRXnOVR();
   mcp2515.clearMERR();
   mcp2515.clearInterrupts();
+}
+
+
+
+void sendChanelStatus()
+{
+	canData.can_id = 0x100;
+	canData.can_dlc = 5;
+	canData.data[0] = HEAD_NUMBER;
+	canData.data[1] = channelStatus.byteStatus[0];
+	canData.data[2] = channelStatus.byteStatus[1];
+	canData.data[3] = channelStatus.byteStatus[2];
+	canData.data[4] = channelStatus.byteStatus[3];
+    //write(socketCan, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame);
+	mcp2515.sendMessage(&canData);
+	lastUpdateCan = millis();
 }
 
 
@@ -124,7 +140,8 @@ bool setupEndpoint()
 				canData.data[0] = 1;// can message cannot be empty
 				mcp2515.sendMessage(&canData);
 				clearCan();
-				return 1;
+				sendChanelStatus();
+				break;
 			}
 			if (currentBit < SHIFT_CH){
 				channelStatus.channelStatus = bit(currentBit);
@@ -132,14 +149,16 @@ bool setupEndpoint()
 				canData.can_dlc = 1;
 				canData.data[0] = FIRST_CH + currentBit;
 				mcp2515.sendMessage(&canData);
-			} else {// currentBit = CHANNELS
+			} else {// currentBit = CHANNELS ALL OFF
 				channelStatus.channelStatus = pow(2,SHIFT_CH)-1;
 				canData.can_id = 0x700;
 				canData.can_dlc = 1;
 				canData.data[0] = LAST_CH;
 				mcp2515.sendMessage(&canData);
+				bitSet(channelStatus.channelStatus, 31); //31 bit ALL OFF
 			}
 				currentBit++;
+				sendChanelStatus();
 		}
 	}
 }
@@ -183,14 +202,17 @@ void canRead()
 		if (canData.can_id >= FIRST_CH && canData.can_id <= LAST_CH){
 			channelState = canData.can_id - FIRST_CH;
 			if (channelState >=0 && channelState < SHIFT_CH){
-				bitClear(channelStatus.channelStatus, 31); // status ALL OFF
-				//bitSet(channelStatus.channelStatus, 0);// set ON first channel
 				status = canData.data[0];
 				if (status > 1){
 					bitToggle(channelStatus.channelStatus, channelState);
 				} else {
 					bitWrite(channelStatus.channelStatus, channelState, status);
 				}
+				//add config status line for()
+				bitClear(channelStatus.channelStatus, 31); // status ALL OFF
+				bitSet(channelStatus.channelStatus, 0);
+				bitSet(channelStatus.channelStatus, 1);
+				//bitSet(channelStatus.channelStatus, 0);// set ON first channel
 			}
 			else {
 				switch (channelState)
@@ -210,6 +232,7 @@ void canRead()
 				}
 			}
 			statusChange[channelState] = millis();
+			sendChanelStatus();
 		}
 	}
 }
@@ -250,24 +273,12 @@ void testProgram() // add status exit for entering configure
 
 
 
-void sendChanelStatus()
-{
-	canData.can_id = 0x100;
-	canData.can_dlc = 5;
-	canData.data[0] = HEAD_NUMBER;
-	canData.data[1] = channelStatus.byteStatus[0];
-	canData.data[2] = channelStatus.byteStatus[1];
-	canData.data[3] = channelStatus.byteStatus[2];
-	canData.data[4] = channelStatus.byteStatus[3];
-    //write(socketCan, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame);
-	mcp2515.sendMessage(&canData);
 
-}
 
 
 
 void setup() {
-	Serial.begin(9600);
+	//Serial.begin(9600);
 	for(forI = 0; forI < SHIFT_CH; forI++){
 		statusChange[forI] = 0;
 		statusOnDelay[forI] = 0;
@@ -297,7 +308,6 @@ void setup() {
 		testProgram();
 	}
 	sendChanelStatus();
-
 }
 
 
@@ -312,11 +322,9 @@ void loop() {
 		canReceived = false;
 		canRead();
 		mcp2515.clearInterrupts();
-		sendChanelStatus();
 	}
 
-	if (millis() - lastUpdate > DELAY_SEND_STATUS) {
-		lastUpdate = millis();
+	if (millis() - lastUpdateCan > DELAY_SEND_STATUS) {
 		sendChanelStatus();
 	}
 
