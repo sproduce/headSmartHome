@@ -17,7 +17,15 @@
 
 
 #define CHANGE_STATUS_DELAY 50
-#define STATUS_NEW_BYTE 1 // EEPROM address save status clear byte
+
+
+#define STATUS_NEW_EEPROM 0 // EEPROM address save status clear byte
+#define STATUS_ALWAYSON_EEPROM 1
+#define STATUS_DUALCHANNEL_EEPROM 2
+#define STATUS_ONDELAY_EEPROM 3
+//!!!!! 3 + SHIFT_CH  MAX NEXT VALUE 35
+
+
 
 #define DELAY_SEND_STATUS 30000 //30 sec update server status
 
@@ -38,43 +46,16 @@
 #define OE_PIN 18 //A4
 
 
-
-
-
-struct button {
-	uint8_t channel;
-	uint8_t status = 0;
-	uint32_t changeTime = 0;
-	uint32_t startTime = 0;
-	uint32_t lastDuration = 0;
-} buttons[COUNT_BUTTONS];
-
+#include "variables.h"
 #include "channelStatus.h"
+#include "libEeprom.h"
 
 
-union channel_status channelStatus;
-
-
-
-uint32_t lastChannelStatus = 0, allOffStatus = 0, lastUpdateCan = 0;
-
-
-
-
-
-
-
-	#include "libEeprom.h"
 
 MCP2515 mcp2515(10);
 can_frame canData;
 
-volatile bool canReceived = false;
-
-uint32_t statusChange[LISTEN_CHANNELS];
-uint32_t statusOnDelay[LISTEN_CHANNELS];
-uint8_t forI;
-uint8_t statusNew;
+//void(* resetFunc) (void) = 0;
 
 void buttonsInit() {
 	pinMode(RESET_BUTTON,INPUT_PULLUP);
@@ -93,13 +74,14 @@ void clearCan(){
 
 void sendChanelStatus()
 {
+	fourByteUnion.value = channelStatus;
 	canData.can_id = 0x100;
 	canData.can_dlc = 5;
 	canData.data[0] = HEAD_NUMBER;
-	canData.data[1] = channelStatus.byteStatus[0];
-	canData.data[2] = channelStatus.byteStatus[1];
-	canData.data[3] = channelStatus.byteStatus[2];
-	canData.data[4] = channelStatus.byteStatus[3];
+	canData.data[1] = fourByteUnion.byteValue[0];
+	canData.data[2] = fourByteUnion.byteValue[1];
+	canData.data[3] = fourByteUnion.byteValue[2];
+	canData.data[4] = fourByteUnion.byteValue[3];
     //write(socketCan, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame);
 	mcp2515.sendMessage(&canData);
 	lastUpdateCan = millis();
@@ -123,6 +105,41 @@ void sendByteMessage(uint8_t canId, uint8_t canDataByte = 1) {
 }
 
 
+
+void configChannel(const can_frame *canData){
+	fourByteUnion.value = 0;
+	fourByteUnion.byteValue[0] = canData->data[1];
+	fourByteUnion.byteValue[1] = canData->data[2];
+	fourByteUnion.byteValue[2] = canData->data[3];
+	fourByteUnion.byteValue[3] = canData->data[4];
+	switch (canData->data[0]){
+		case 5: // set dual channel   (example set first line dual "cansend can0 02e#05.01.00.00.00")
+			dualChannel = fourByteUnion.value;
+		break;
+
+		case 6: // set always on channel
+			alwaysOnChannel = fourByteUnion.value;
+		break;
+
+		case 7: // set status on delay (cansend can0 02e#07.ff.0f.00.00.05) line 6 status on ~4sec
+			if (canData->can_dlc == 6){
+				statusOnDelay[canData->data[5]] = fourByteUnion.value;
+			}
+		break;
+
+		case 100:// save eeprom
+			setUint32(alwaysOnChannel, STATUS_ALWAYSON_EEPROM);
+			setUint32(dualChannel,STATUS_DUALCHANNEL_EEPROM);
+			for(uint8_t i = 0; i < SHIFT_CH; i++){
+				setUint32(statusOnDelay[i], STATUS_ONDELAY_EEPROM + i);
+			}
+		break;
+
+	}
+}
+
+
+
 bool setupEndpoint()
 {
 	uint8_t currentBit = 0;
@@ -133,7 +150,7 @@ bool setupEndpoint()
 		updateChannel(&channelStatus, &lastChannelStatus);
 
 		if (buttonRead(&buttons[0]) && buttons[0].status) {
-			channelStatus = {0};
+			channelStatus = 0;
 			if (currentBit > SHIFT_CH){ // end learn endPoint
 				canData.can_id = 0x707;
 				canData.can_dlc = 1;
@@ -144,18 +161,18 @@ bool setupEndpoint()
 				break;
 			}
 			if (currentBit < SHIFT_CH){
-				channelStatus.channelStatus = bit(currentBit);
+				channelStatus = bit(currentBit);
 				canData.can_id = 0x700;
 				canData.can_dlc = 1;
 				canData.data[0] = FIRST_CH + currentBit;
 				mcp2515.sendMessage(&canData);
 			} else {// currentBit = CHANNELS ALL OFF
-				channelStatus.channelStatus = pow(2,SHIFT_CH)-1;
+				channelStatus = pow(2,SHIFT_CH)-1;
 				canData.can_id = 0x700;
 				canData.can_dlc = 1;
 				canData.data[0] = LAST_CH;
 				mcp2515.sendMessage(&canData);
-				bitSet(channelStatus.channelStatus, 31); //31 bit ALL OFF
+				bitSet(channelStatus, 31); //31 bit ALL OFF
 			}
 				currentBit++;
 				sendChanelStatus();
@@ -201,37 +218,56 @@ void canRead()
 	while (mcp2515.readMessage(&canData) == MCP2515::ERROR_OK) {
 		if (canData.can_id >= FIRST_CH && canData.can_id <= LAST_CH){
 			channelState = canData.can_id - FIRST_CH;
-			if (channelState >=0 && channelState < SHIFT_CH){
+			if (channelState >=0 && channelState < SHIFT_CH){// line channel
+				bitClear(channelStatus, 31); // status ALL OFF
 				status = canData.data[0];
-				if (status > 1){
-					bitToggle(channelStatus.channelStatus, channelState);
+
+				if (bitRead(dualChannel, channelState)){
+					if (status){
+						bitClear(channelStatus, channelState);
+						bitSet(channelStatus, channelState + 1);
+						channelState ++; // !!!!!!  statusChange NOT CORRECT
+					} else {
+						bitClear(channelStatus, channelState + 1);
+						bitSet(channelStatus, channelState);
+					}
 				} else {
-					bitWrite(channelStatus.channelStatus, channelState, status);
+					if (status > 1){
+						bitToggle(channelStatus, channelState);
+					} else {
+						bitWrite(channelStatus, channelState, status);
+					}
 				}
-				//add config status line for()
-				bitClear(channelStatus.channelStatus, 31); // status ALL OFF
-				bitSet(channelStatus.channelStatus, 0);
-				bitSet(channelStatus.channelStatus, 1);
-				//bitSet(channelStatus.channelStatus, 0);// set ON first channel
+
+				channelStatus |= alwaysOnChannel;
 			}
-			else {
+			else {//system channel
+
 				switch (channelState)
 				{
+
+					case 30:
+							configChannel(&canData);
+					break;
+
+
 					case 31:
-						if (bitRead(channelStatus.channelStatus, channelState) && (millis() - statusChange[channelState] < 3000)){
-							channelStatus.channelStatus = allOffStatus;
-							if(channelStatus.byteStatus[0] || channelStatus.byteStatus[1] || channelStatus.byteStatus[2]){
-								bitClear(channelStatus.channelStatus, channelState);
+						fourByteUnion.value = channelStatus;
+						fourByteUnion.byteValue[3] = 0;// ONLY SHIFT REGISTER
+						if (bitRead(channelStatus, channelState) && (millis() - statusChange[channelState] < 3000)){
+							channelStatus = allOffStatus;
+							if(fourByteUnion.value){
+								bitClear(channelStatus, channelState);
 							}
 						} else {
-							allOffStatus = channelStatus.channelStatus;
-							channelStatus = {0};
-							bitSet(channelStatus.channelStatus, channelState);
+							allOffStatus = channelStatus;
+							channelStatus = 0;
+							bitSet(channelStatus, channelState);
 						}
 					break;
 				}
 			}
-			statusChange[channelState] = millis();
+			statusChange[channelState] = millis(); //!!!!! NOT CORRECT
 			sendChanelStatus();
 		}
 	}
@@ -243,21 +279,21 @@ void testProgram() // add status exit for entering configure
 
 	uint32_t lastChange = millis();
 
-	channelStatus = {1};
+	channelStatus = 1;
 
 	for(;;){
 		if (millis() - lastChange > TEST_DELAY * countTest){
 			lastChange = millis();
-			channelStatus.channelStatus <<= 1;
+			channelStatus <<= 1;
 //			if (countTest%2 == 0){
 //				channelStatus |= 1;
 //			}
 
-			if (bitRead(channelStatus.channelStatus, SHIFT_CH - 1)){
+			if (bitRead(channelStatus, SHIFT_CH - 1)){
 //				if (countTest%2 == 0){
 //					countDelay++;
 //				}
-				channelStatus = {1};
+				channelStatus = 1;
 				countTest++;
 			}
 		}
@@ -266,7 +302,7 @@ void testProgram() // add status exit for entering configure
 		if (countTest == TEST_ATTEMPTS){break;}
 		if (buttonRead(&buttons[0])){break;}
 	}
-	channelStatus = {0};
+	channelStatus = 0;
 	updateChannel(&channelStatus, &lastChannelStatus);
 }
 
@@ -278,14 +314,28 @@ void testProgram() // add status exit for entering configure
 
 
 void setup() {
-	//Serial.begin(9600);
-	for(forI = 0; forI < SHIFT_CH; forI++){
-		statusChange[forI] = 0;
-		statusOnDelay[forI] = 0;
-	}
+	Serial.begin(9600);
+	//for(forI = 0; forI < SHIFT_CH; forI++){
+//		statusChange[forI] = 0;
+	//	statusOnDelay[forI] = 0;
+//	}
 
-	statusOnDelay[14] = 500;
-	statusOnDelay[15] = 500;
+
+//Serial.println("test");
+
+//	statusOnDelay[14] = 500;
+//	statusOnDelay[15] = 500;
+
+	//bitClear(alwaysOnChannel, 31); // status ALL OFF
+	//bitSet(alwaysOnChannel, 0);
+	//bitSet(alwaysOnChannel, 1);
+	//bitSet(alwaysOnChannel, 5);
+
+
+	//bitSet(dualChannel, 8);
+	//statusOnDelay[8] = 2000;
+	//statusOnDelay[9] = 2000;
+
 
 	shiftRegisterInit();
 	buttonsInit();
@@ -301,19 +351,21 @@ void setup() {
 		clearEeprom();
 	}
 
-	statusNew = !getStatusNew(STATUS_NEW_BYTE);
-
-	if (statusNew){
+	if (!getUint32(STATUS_NEW_EEPROM)){
 		delay(100); //cache shift register write
 		testProgram();
 	}
+
+
+
+	alwaysOnChannel = getUint32(STATUS_ALWAYSON_EEPROM);
+	dualChannel = getUint32(STATUS_DUALCHANNEL_EEPROM);
+	for(uint8_t i = 0; i < SHIFT_CH; i++){
+		statusOnDelay[i] = getUint32(STATUS_ONDELAY_EEPROM + i);
+	}
+
 	sendChanelStatus();
 }
-
-
-
-
-uint8_t channel;
 
 
 void loop() {
@@ -334,13 +386,13 @@ void loop() {
 	buttonRead(&buttons[0]);
 	if (buttons[0].status && millis() - buttons[0].startTime > 6000){
 		setupEndpoint();
-		setStatusNew(STATUS_NEW_BYTE);
+		setUint32(1, STATUS_NEW_EEPROM);
 	}
 // ToDo cancel if nothing to delay
-	for (channel = 0; channel < SHIFT_CH; channel++){
-		if (bitRead(channelStatus.channelStatus, channel)){ // is channel ON
-			if (statusOnDelay[channel] && (millis() - statusChange[channel] > statusOnDelay[channel])){
-				bitClear(channelStatus.channelStatus, channel);
+	for (forI = 0; forI < SHIFT_CH; forI++){
+		if (bitRead(channelStatus, forI)){ // is channel ON
+			if (statusOnDelay[forI] && (millis() - statusChange[forI] > statusOnDelay[forI])){
+				bitClear(channelStatus, forI);
 				sendChanelStatus();
 			}
 		} else {//channel OFF

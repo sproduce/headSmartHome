@@ -3,13 +3,7 @@
 #ifndef CHANNELSTATUS_H_
 #define CHANNELSTATUS_H_
 
-typedef union channel_status
-{
-	uint32_t channelStatus;
-	uint8_t byteStatus[4];
-};
-
-
+#include "variables.h"
 uint32_t channelStatusUpdate = 0;//timestamp
 
 void shiftRegisterClean(){
@@ -35,23 +29,24 @@ void shiftRegisterInit() {
 }
 
 
-void setChannelStatus(channel_status *channelStatus, uint32_t *lastChannel){
+void setChannelStatus(uint32_t *channelStatus, uint32_t *lastChannel){
+		fourByteUnion.value = *channelStatus;
 		shiftRegisterClean();
 		digitalWrite(LATCH_PIN, LOW);
 
 		for (int8_t i = SHIFT_REGISTER_COUNT; i >= 0; i--){
-			shiftOut(DATA_PIN, CLOCK_PIN , 1 , channelStatus->byteStatus[i]);
+			shiftOut(DATA_PIN, CLOCK_PIN , 1 ,fourByteUnion.byteValue[i]);
 		}
 		digitalWrite(LATCH_PIN, HIGH);
 		channelStatusUpdate = 0;
-		*lastChannel = channelStatus->channelStatus;
+		*lastChannel = *channelStatus;
 }
 
 
 
-void updateChannel(channel_status *channelStatus, uint32_t *lastChannelStatus){
+void updateChannel(uint32_t *channelStatus, uint32_t *lastChannelStatus){
 
-	if (!channelStatusUpdate && channelStatus->channelStatus != *lastChannelStatus){
+	if (!channelStatusUpdate && *channelStatus != *lastChannelStatus){
 		channelStatusUpdate = millis();
 		return ;
 	}
@@ -59,13 +54,13 @@ void updateChannel(channel_status *channelStatus, uint32_t *lastChannelStatus){
 	if (channelStatusUpdate && (millis() - channelStatusUpdate > 20)){
 		//Serial.println("Update Channel");
 		//Serial.println(channelStatus->channelStatus);
-		switch (channelStatus->channelStatus)
+		switch (*channelStatus)
 		{
 			case 0:
 				if (*lastChannelStatus == pow(2,SHIFT_CH)-1){
-					channelStatus->channelStatus = *lastChannelStatus;
+					*channelStatus = *lastChannelStatus;
 					for (int8_t i = 0; i < SHIFT_CH; i++){
-						bitClear(channelStatus->channelStatus, i);
+						bitClear(*channelStatus, i);
 						setChannelStatus(channelStatus, lastChannelStatus);
 						delay(CHANGE_STATUS_DELAY);
 					}
@@ -75,9 +70,9 @@ void updateChannel(channel_status *channelStatus, uint32_t *lastChannelStatus){
 
 			break;
 			case uint32_t(pow(2,SHIFT_CH)-1):
-					channelStatus->channelStatus = 0;
+					*channelStatus = 0;
 					for (int8_t i = SHIFT_CH -1; i >= 0; i--){
-						bitSet(channelStatus->channelStatus, i);
+						bitSet(*channelStatus, i);
 						setChannelStatus(channelStatus, lastChannelStatus);
 						delay(CHANGE_STATUS_DELAY);
 					}
