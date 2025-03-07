@@ -222,7 +222,7 @@ void canRead()
 				bitClear(channelStatus, 31); // status ALL OFF
 				status = canData.data[0];
 
-				if (bitRead(dualChannel, channelState)){
+				if (bitRead(dualChannel, channelState)){// !!!max line channelState < SHIFT_CH - 1
 					if (status){
 						bitClear(channelStatus, channelState);
 						bitSet(channelStatus, channelState + 1);
