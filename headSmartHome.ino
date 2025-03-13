@@ -108,12 +108,13 @@ void sendByteMessage(uint8_t canId, uint8_t canDataByte = 1) {
 
 void configChannel(const can_frame *canData){
 	fourByteUnion.value = 0;
-	fourByteUnion.byteValue[0] = canData->data[1];
-	fourByteUnion.byteValue[1] = canData->data[2];
-	fourByteUnion.byteValue[2] = canData->data[3];
-	fourByteUnion.byteValue[3] = canData->data[4];
+	fourByteUnion.byteValue[0] = canData->data[4];
+	fourByteUnion.byteValue[1] = canData->data[3];
+	fourByteUnion.byteValue[2] = canData->data[2];
+	fourByteUnion.byteValue[3] = canData->data[1];
 	switch (canData->data[0]){
-		case 5: // set dual channel   (example set first line dual "cansend can0 02e#05.01.00.00.00")
+		case 5: // set dual channel   (example set 3 line dual "cansend can0 02e#05.00.00.00.04")
+			fourByteUnion.byteValue[3] = 0;// only available shift register value
 			dualChannel = fourByteUnion.value;
 		break;
 
@@ -121,20 +122,25 @@ void configChannel(const can_frame *canData){
 			alwaysOnChannel = fourByteUnion.value;
 		break;
 
-		case 7: // set status on delay (cansend can0 02e#07.ff.0f.00.00.05) line 6 status on ~4sec
+		case 7: // set status on delay (cansend can0 02e#07.00.00.ff.0f.05) line 6 status on ~4sec
 			if (canData->can_dlc == 6){
 				statusOnDelay[canData->data[5]] = fourByteUnion.value;
 			}
 		break;
 
-		case 100:// save eeprom
+		case 100:// save line extension
 			setUint32(alwaysOnChannel, STATUS_ALWAYSON_EEPROM);
 			setUint32(dualChannel,STATUS_DUALCHANNEL_EEPROM);
 			for(uint8_t i = 0; i < SHIFT_CH; i++){
 				setUint32(statusOnDelay[i], STATUS_ONDELAY_EEPROM + i);
 			}
 		break;
-
+		case 101: //clear line extension
+			alwaysOnChannel = 0;
+			dualChannel = 0;
+			for(uint8_t i = 0; i < SHIFT_CH; i++){
+				statusOnDelay[i] = 0;
+			}
 	}
 }
 
@@ -222,11 +228,11 @@ void canRead()
 				bitClear(channelStatus, 31); // status ALL OFF
 				status = canData.data[0];
 
-				if (bitRead(dualChannel, channelState)){// !!!max line channelState < SHIFT_CH - 1
+				if (bitRead(dualChannel, channelState)){
 					if (status){
 						bitClear(channelStatus, channelState);
 						bitSet(channelStatus, channelState + 1);
-						channelState ++; // !!!!!!  statusChange NOT CORRECT
+						channelState ++;
 					} else {
 						bitClear(channelStatus, channelState + 1);
 						bitSet(channelStatus, channelState);
@@ -314,28 +320,7 @@ void testProgram() // add status exit for entering configure
 
 
 void setup() {
-	Serial.begin(9600);
-	//for(forI = 0; forI < SHIFT_CH; forI++){
-//		statusChange[forI] = 0;
-	//	statusOnDelay[forI] = 0;
-//	}
-
-
-//Serial.println("test");
-
-//	statusOnDelay[14] = 500;
-//	statusOnDelay[15] = 500;
-
-	//bitClear(alwaysOnChannel, 31); // status ALL OFF
-	//bitSet(alwaysOnChannel, 0);
-	//bitSet(alwaysOnChannel, 1);
-	//bitSet(alwaysOnChannel, 5);
-
-
-	//bitSet(dualChannel, 8);
-	//statusOnDelay[8] = 2000;
-	//statusOnDelay[9] = 2000;
-
+	//Serial.begin(9600);
 
 	shiftRegisterInit();
 	buttonsInit();
@@ -390,8 +375,8 @@ void loop() {
 	}
 // ToDo cancel if nothing to delay
 	for (forI = 0; forI < SHIFT_CH; forI++){
-		if (bitRead(channelStatus, forI)){ // is channel ON
-			if (statusOnDelay[forI] && (millis() - statusChange[forI] > statusOnDelay[forI])){
+		if (statusOnDelay[forI] && bitRead(channelStatus, forI)){ // is channel ON
+			if ((millis() - statusChange[forI] > statusOnDelay[forI])){
 				bitClear(channelStatus, forI);
 				sendChanelStatus();
 			}

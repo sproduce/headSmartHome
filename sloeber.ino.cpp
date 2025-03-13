@@ -2,7 +2,7 @@
 //This is a automatic generated file
 //Please do not modify this file
 //If you touch this file your change will be overwritten during the next build
-//This file has been generated on 2025-02-13 00:25:50
+//This file has been generated on 2025-03-13 23:41:41
 
 #include "Arduino.h"
 #include <mcp2515.h>
