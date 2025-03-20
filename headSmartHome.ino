@@ -3,6 +3,13 @@
 #include <EEPROM.h>
 
 
+
+
+#define MAJOR 1
+#define MINOR 1
+#define PATCH 3
+
+
 #define HEAD_NUMBER 1 //MAX value 7
 
 #define LISTEN_CHANNELS 32
@@ -97,12 +104,12 @@ void sendResetMessage(void)
 	mcp2515.sendMessage(&canData);
 }
 
-void sendByteMessage(uint8_t canId, uint8_t canDataByte = 1) {
-	canData.can_id = canId;
-	canData.can_dlc = 1;
-	canData.data[0] = canDataByte;
-	mcp2515.sendMessage(&canData);
-}
+//void sendByteMessage(uint8_t canId, uint8_t canDataByte = 1) {
+//	canData.can_id = canId;
+//	canData.can_dlc = 1;
+//	canData.data[0] = canDataByte;
+//	mcp2515.sendMessage(&canData);
+//}
 
 
 
@@ -123,7 +130,7 @@ void configChannel(const can_frame *canData){
 		break;
 
 		case 7: // set status on delay (cansend can0 02e#07.00.00.ff.0f.05) line 6 status on ~4sec
-			if (canData->can_dlc == 6){
+			if (canData->can_dlc == 6 && canData->data[5] < SHIFT_CH){
 				statusOnDelay[canData->data[5]] = fourByteUnion.value;
 			}
 		break;
@@ -331,6 +338,12 @@ void setup() {
 	mcp2515.setNormalMode();
 	attachInterrupt(0, canInterrupt, FALLING);
 
+	canData.can_id = 0x1 * HEAD_NUMBER;
+	canData.can_dlc = 3;
+	canData.data[0] = MAJOR;
+	canData.data[1] = MINOR;
+	canData.data[2] = PATCH;
+	mcp2515.sendMessage(&canData);
 	if (!digitalRead(RESET_BUTTON)){
 		sendResetMessage();
 		clearEeprom();
