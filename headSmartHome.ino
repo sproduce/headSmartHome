@@ -7,14 +7,14 @@
 
 #define MAJOR 1
 #define MINOR 1
-#define PATCH 3
+#define PATCH 4
 
 
 #define HEAD_NUMBER 1 //MAX value 7
 
 #define LISTEN_CHANNELS 32
 
-#define SHIFT_REGISTER_COUNT 2  // possible value 2 or 3
+#define SHIFT_REGISTER_COUNT 3  // possible value 2 or 3
 
 #define SHIFT_CH SHIFT_REGISTER_COUNT * 8
 
@@ -232,6 +232,7 @@ void canRead()
 		if (canData.can_id >= FIRST_CH && canData.can_id <= LAST_CH){
 			channelState = canData.can_id - FIRST_CH;
 			if (channelState >=0 && channelState < SHIFT_CH){// line channel
+				channelStatus |= alwaysOnChannel; // ON system channel
 				bitClear(channelStatus, 31); // status ALL OFF
 				status = canData.data[0];
 
@@ -251,8 +252,6 @@ void canRead()
 						bitWrite(channelStatus, channelState, status);
 					}
 				}
-
-				channelStatus |= alwaysOnChannel;
 			}
 			else {//system channel
 
@@ -321,17 +320,17 @@ void testProgram() // add status exit for entering configure
 
 
 
-
-
-
-
-
 void setup() {
-	//Serial.begin(9600);
 
 	shiftRegisterInit();
 	buttonsInit();
 	pinMode(2, INPUT_PULLUP);
+
+	if (!getUint32(STATUS_NEW_EEPROM)){
+		delay(100); //cache shift register write
+		testProgram();
+	}
+
 
 	mcp2515.reset();
 	mcp2515.setBitrate(CAN_125KBPS,MCP_8MHZ);
@@ -344,16 +343,11 @@ void setup() {
 	canData.data[1] = MINOR;
 	canData.data[2] = PATCH;
 	mcp2515.sendMessage(&canData);
+
 	if (!digitalRead(RESET_BUTTON)){
 		sendResetMessage();
 		clearEeprom();
 	}
-
-	if (!getUint32(STATUS_NEW_EEPROM)){
-		delay(100); //cache shift register write
-		testProgram();
-	}
-
 
 
 	alwaysOnChannel = getUint32(STATUS_ALWAYSON_EEPROM);
