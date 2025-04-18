@@ -7,7 +7,7 @@
 
 #define MAJOR 1
 #define MINOR 1
-#define PATCH 4
+#define PATCH 5
 
 
 #define HEAD_NUMBER 1 //MAX value 7
@@ -20,8 +20,6 @@
 
 #define FIRST_CH  (HEAD_NUMBER * 2 - 1) * 16
 #define LAST_CH  FIRST_CH + 31
-
-
 
 #define CHANGE_STATUS_DELAY 50
 
@@ -103,15 +101,6 @@ void sendResetMessage(void)
 	canData.data[0] = 1; //can message cannot be empty
 	mcp2515.sendMessage(&canData);
 }
-
-//void sendByteMessage(uint8_t canId, uint8_t canDataByte = 1) {
-//	canData.can_id = canId;
-//	canData.can_dlc = 1;
-//	canData.data[0] = canDataByte;
-//	mcp2515.sendMessage(&canData);
-//}
-
-
 
 void configChannel(const can_frame *canData){
 	fourByteUnion.value = 0;
@@ -237,13 +226,18 @@ void canRead()
 				status = canData.data[0];
 
 				if (bitRead(dualChannel, channelState)){
-					if (status){
-						bitClear(channelStatus, channelState);
-						bitSet(channelStatus, channelState + 1);
-						channelState ++;
+					statusChange[channelState + 1] = millis();
+					if (status>1){//toggle status dual line
+						bitWrite(channelStatus, channelState + 1, bitRead(channelStatus, channelState));
+						bitToggle(channelStatus, channelState);
 					} else {
-						bitClear(channelStatus, channelState + 1);
-						bitSet(channelStatus, channelState);
+						if (status){ // ON/OFF dual line
+							bitClear(channelStatus, channelState);
+							bitSet(channelStatus, channelState + 1);
+						} else {
+							bitClear(channelStatus, channelState + 1);
+							bitSet(channelStatus, channelState);
+						}
 					}
 				} else {
 					if (status > 1){
