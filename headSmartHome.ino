@@ -232,11 +232,12 @@ void canRead()
 						bitToggle(channelStatus, channelState);
 					} else {
 						if (status){ // ON/OFF dual line
-							bitClear(channelStatus, channelState);
-							bitSet(channelStatus, channelState + 1);
-						} else {
 							bitClear(channelStatus, channelState + 1);
 							bitSet(channelStatus, channelState);
+						} else {
+							bitClear(channelStatus, channelState);
+							bitSet(channelStatus, channelState + 1);
+
 						}
 					}
 				} else {
