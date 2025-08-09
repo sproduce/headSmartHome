@@ -2,7 +2,7 @@
 //This is a automatic generated file
 //Please do not modify this file
 //If you touch this file your change will be overwritten during the next build
-//This file has been generated on 2025-05-28 02:11:39
+//This file has been generated on 2025-08-09 22:47:08
 
 #include "Arduino.h"
 #include <mcp2515.h>
@@ -10,10 +10,10 @@
 #include <EEPROM.h>
 #define MAJOR 1
 #define MINOR 1
-#define PATCH 5
+#define PATCH 6
 #define HEAD_NUMBER 1
 #define LISTEN_CHANNELS 32
-#define SHIFT_REGISTER_COUNT 3
+#define SHIFT_REGISTER_COUNT 2
 #define SHIFT_CH SHIFT_REGISTER_COUNT * 8
 #define FIRST_CH  (HEAD_NUMBER * 2 - 1) * 16
 #define LAST_CH  FIRST_CH + 31

@@ -7,14 +7,14 @@
 
 #define MAJOR 1
 #define MINOR 1
-#define PATCH 5
+#define PATCH 6
 
 
 #define HEAD_NUMBER 1 //MAX value 7
+#define SHIFT_REGISTER_COUNT 2  // possible value 2 or 3
+
 
 #define LISTEN_CHANNELS 32
-
-#define SHIFT_REGISTER_COUNT 3  // possible value 2 or 3
 
 #define SHIFT_CH SHIFT_REGISTER_COUNT * 8
 

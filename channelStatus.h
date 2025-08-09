@@ -45,7 +45,7 @@ void setChannelStatus(uint32_t *channelStatus, uint32_t *lastChannel){
 
 
 void updateChannel(uint32_t *channelStatus, uint32_t *lastChannelStatus){
-
+	// start cache timer
 	if (!channelStatusUpdate && *channelStatus != *lastChannelStatus){
 		channelStatusUpdate = millis();
 		return ;
