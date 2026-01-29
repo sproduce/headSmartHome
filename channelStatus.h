@@ -3,7 +3,6 @@
 #ifndef CHANNELSTATUS_H_
 #define CHANNELSTATUS_H_
 
-#include "variables.h"
 uint32_t channelStatusUpdate = 0;//timestamp
 
 void shiftRegisterClean(){

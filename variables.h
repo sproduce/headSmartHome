@@ -15,7 +15,7 @@ struct button {
 	uint8_t status = 0;
 	uint32_t changeTime = 0;
 	uint32_t startTime = 0;
-	uint32_t lastDuration = 0;
+	//uint32_t lastDuration = 0;
 } buttons[COUNT_BUTTONS];
 
 
@@ -41,8 +41,8 @@ uint32_t statusOnDelay[SHIFT_CH];
 volatile bool canReceived = false;
 
 uint32_t statusChange[LISTEN_CHANNELS] = {0};
-uint8_t forI;
-
+uint8_t statusModeTmp;
+uint16_t statusModeChangeTime;
 
 
 

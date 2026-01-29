@@ -17,14 +17,13 @@
 #define LISTEN_CHANNELS 32
 
 #define SHIFT_CH SHIFT_REGISTER_COUNT * 8
-
 #define FIRST_CH  (HEAD_NUMBER * 2 - 1) * 16
 #define LAST_CH  FIRST_CH + 31
 
 #define CHANGE_STATUS_DELAY 50
 
 
-#define STATUS_NEW_EEPROM 0 // EEPROM address save status clear byte
+#define STATUS_MODE_EEPROM 0 // EEPROM address save status clear byte
 #define STATUS_ALWAYSON_EEPROM 1
 #define STATUS_DUALCHANNEL_EEPROM 2
 #define STATUS_ONDELAY_EEPROM 3
@@ -37,9 +36,12 @@
 #define TEST_ATTEMPTS 20
 #define TEST_DELAY 3000
 
-
-#define RESET_BUTTON 3
 #define COUNT_BUTTONS 1
+#define RESET_BUTTON 3
+
+#define STATUS_MODE_LED 0
+#define STATUS_MODE_DELAY_1 3000
+#define STATUS_MODE_DELAY_2 350
 
 
 
@@ -62,9 +64,11 @@ can_frame canData;
 
 //void(* resetFunc) (void) = 0;
 
-void buttonsInit() {
+void pinoutInit() {
 	pinMode(RESET_BUTTON,INPUT_PULLUP);
 	buttons[0].channel = RESET_BUTTON;
+
+	pinMode(STATUS_MODE_LED, OUTPUT);
 }
 
 
@@ -184,24 +188,22 @@ bool setupEndpoint()
 
 
 
-bool buttonRead(struct button *currentButton) {
+bool buttonRead(struct button *btn) {
+	uint8_t currentStatus = !digitalRead(btn->channel);
 
-	uint8_t curretnStatus = !digitalRead(currentButton->channel);
+	if (currentStatus == btn->status) {
+		btn->changeTime = 0;
+		return false;
+	}
 
-	if (curretnStatus != currentButton->status){
-		if (!currentButton->changeTime ) {
-			currentButton->changeTime = millis();
-		}
-		if (millis() - currentButton->changeTime > 50){
-			currentButton->changeTime = 0;
-			currentButton->status = curretnStatus;
-			currentButton->lastDuration = millis() - currentButton->startTime;
-			currentButton->startTime = millis();
+	if (btn->changeTime == 0) btn->changeTime = millis();
+
+	if (millis() - btn->changeTime > 50){
+			btn->status = currentStatus;
+			btn->changeTime = 0;
+			btn->startTime = millis();
 			return true;
 		}
-	} else {
-		currentButton->changeTime = 0;
-	}
 
 	return false;
 }
@@ -252,11 +254,9 @@ void canRead()
 
 				switch (channelState)
 				{
-
 					case 30:
 							configChannel(&canData);
 					break;
-
 
 					case 31:
 						fourByteUnion.value = channelStatus;
@@ -315,16 +315,34 @@ void testProgram() // add status exit for entering configure
 
 
 
+void blinkStatusLed() {
+	if ((uint16_t)((uint16_t)millis() - statusModeChangeTime) > STATUS_MODE_DELAY_1){
+				statusModeTmp = getUint32(STATUS_MODE_EEPROM) * 2;
+				statusModeChangeTime = millis();
+			}
+
+		if ((uint16_t)((uint16_t)millis() - statusModeChangeTime) > STATUS_MODE_DELAY_2 && statusModeTmp){
+			//digitalWrite(STATUS_MODE_LED, !digitalRead(STATUS_MODE_LED));
+			PIND = (1 << 0);
+			statusModeTmp --;
+			statusModeChangeTime = millis();
+		}
+}
+
+
+
+
+
 void setup() {
-
+//after reload send 0 config canId
 	shiftRegisterInit();
-	buttonsInit();
+	pinoutInit();
 	pinMode(2, INPUT_PULLUP);
-
-	if (!getUint32(STATUS_NEW_EEPROM)){
-		delay(100); //cache shift register write
-		testProgram();
-	}
+	statusModeChangeTime = millis();
+//	if (!getUint32(STATUS_NEW_EEPROM)){
+//		delay(100); //cache shift register write
+//		testProgram();
+//	}
 
 
 	mcp2515.reset();
@@ -356,7 +374,7 @@ void setup() {
 
 
 void loop() {
-
+	blinkStatusLed();
 	if (canReceived){
 		canReceived = false;
 		canRead();
@@ -373,13 +391,13 @@ void loop() {
 	buttonRead(&buttons[0]);
 	if (buttons[0].status && millis() - buttons[0].startTime > 6000){
 		setupEndpoint();
-		setUint32(1, STATUS_NEW_EEPROM);
+		setUint32(1, STATUS_MODE_EEPROM);
 	}
 // ToDo cancel if nothing to delay
-	for (forI = 0; forI < SHIFT_CH; forI++){
-		if (statusOnDelay[forI] && bitRead(channelStatus, forI)){ // is channel ON
-			if ((millis() - statusChange[forI] > statusOnDelay[forI])){
-				bitClear(channelStatus, forI);
+	for (uint8_t i = 0; i < SHIFT_CH; i++){
+		if (statusOnDelay[i] && bitRead(channelStatus, i)){ // is channel ON
+			if ((millis() - statusChange[i] > statusOnDelay[i])){
+				bitClear(channelStatus, i);
 				sendChanelStatus();
 			}
 		} else {//channel OFF
