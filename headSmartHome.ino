@@ -11,7 +11,7 @@
 
 
 #define HEAD_NUMBER 1 //MAX value 7
-#define SHIFT_REGISTER_COUNT 2  // possible value 2 or 3
+#define SHIFT_REGISTER_COUNT 3  // possible value 2 or 3
 
 
 #define LISTEN_CHANNELS 32
@@ -42,6 +42,7 @@
 #define STATUS_MODE_LED 0
 #define STATUS_MODE_DELAY_1 3000
 #define STATUS_MODE_DELAY_2 350
+#define STATUS_MODE_OPTIONS 3 //   <256
 
 
 
@@ -149,13 +150,12 @@ void configChannel(const can_frame *canData){
 bool setupEndpoint()
 {
 	uint8_t currentBit = 0;
-	buttons[0].status = 0;
-	buttons[0].startTime = 0;
+
 	for(;;)
 	{
 		updateChannel(&channelStatus, &lastChannelStatus);
+		if (buttonRead(&buttons[0]) && buttons[0].status == 0 || currentBit == 0) {
 
-		if (buttonRead(&buttons[0]) && buttons[0].status) {
 			channelStatus = 0;
 			if (currentBit > SHIFT_CH){ // end learn endPoint
 				canData.can_id = 0x707;
@@ -173,15 +173,16 @@ bool setupEndpoint()
 				canData.data[0] = FIRST_CH + currentBit;
 				mcp2515.sendMessage(&canData);
 			} else {// currentBit = CHANNELS ALL OFF
-				channelStatus = pow(2,SHIFT_CH)-1;
+				channelStatus = (1UL << SHIFT_CH) - 1;
 				canData.can_id = 0x700;
 				canData.can_dlc = 1;
 				canData.data[0] = LAST_CH;
 				mcp2515.sendMessage(&canData);
 				bitSet(channelStatus, 31); //31 bit ALL OFF
 			}
-				currentBit++;
-				sendChanelStatus();
+
+			currentBit++;
+			sendChanelStatus();
 		}
 	}
 }
@@ -200,6 +201,7 @@ bool buttonRead(struct button *btn) {
 
 	if (millis() - btn->changeTime > 50){
 			btn->status = currentStatus;
+			btn->lastDuration = millis() - btn->startTime;
 			btn->changeTime = 0;
 			btn->startTime = millis();
 			return true;
@@ -315,9 +317,28 @@ void testProgram() // add status exit for entering configure
 
 
 
+void SequentialUp(){
+	channelStatus = 0;
+	updateChannel(&channelStatus, &lastChannelStatus);
+	delay(30);
+	for (uint8_t i = 0; i < SHIFT_CH; i++){
+		channelStatus = (channelStatus << 1) | 1;
+		updateChannel(&channelStatus, &lastChannelStatus);
+		delay(1000);
+		updateChannel(&channelStatus, &lastChannelStatus);
+	}
+
+
+
+}
+
+
+
+
+
 void blinkStatusLed() {
 	if ((uint16_t)((uint16_t)millis() - statusModeChangeTime) > STATUS_MODE_DELAY_1){
-				statusModeTmp = getUint32(STATUS_MODE_EEPROM) * 2;
+				statusModeTmp = statusMode * 2;
 				statusModeChangeTime = millis();
 			}
 
@@ -338,7 +359,8 @@ void setup() {
 	shiftRegisterInit();
 	pinoutInit();
 	pinMode(2, INPUT_PULLUP);
-	statusModeChangeTime = millis();
+	statusModeChangeTime = 0;
+
 //	if (!getUint32(STATUS_NEW_EEPROM)){
 //		delay(100); //cache shift register write
 //		testProgram();
@@ -363,13 +385,25 @@ void setup() {
 	}
 
 
+	statusMode = getUint32(STATUS_MODE_EEPROM);
 	alwaysOnChannel = getUint32(STATUS_ALWAYSON_EEPROM);
 	dualChannel = getUint32(STATUS_DUALCHANNEL_EEPROM);
+
+
 	for(uint8_t i = 0; i < SHIFT_CH; i++){
 		statusOnDelay[i] = getUint32(STATUS_ONDELAY_EEPROM + i);
 	}
 
 	sendChanelStatus();
+
+	if (statusMode == 2) {
+			SequentialUp();
+		}
+	if (statusMode == 1) {
+			testProgram();
+		}
+
+
 }
 
 
@@ -388,11 +422,27 @@ void loop() {
 
 	updateChannel(&channelStatus, &lastChannelStatus);
 
-	buttonRead(&buttons[0]);
-	if (buttons[0].status && millis() - buttons[0].startTime > 6000){
-		setupEndpoint();
-		setUint32(1, STATUS_MODE_EEPROM);
+	if (buttonRead(&buttons[0]) && buttons[0].status == 0){
+		if (buttons[0].lastDuration > 3000){
+			statusMode ++;
+			if (statusMode > STATUS_MODE_OPTIONS){
+				statusMode = 1;
+			}
+			setUint32(statusMode, STATUS_MODE_EEPROM);
+		} else {
+			setupEndpoint();
+		}
+
+	//if (buttonRead(&buttons[0]) && buttons[0].status == 0 && buttons[0].lastDuration < 1000){
+
+		//setUint32(1, STATUS_MODE_EEPROM);
 	}
+
+
+
+
+
+
 // ToDo cancel if nothing to delay
 	for (uint8_t i = 0; i < SHIFT_CH; i++){
 		if (statusOnDelay[i] && bitRead(channelStatus, i)){ // is channel ON

@@ -2,7 +2,7 @@
 //This is a automatic generated file
 //Please do not modify this file
 //If you touch this file your change will be overwritten during the next build
-//This file has been generated on 2026-01-29 21:24:45
+//This file has been generated on 2026-01-30 00:48:31
 
 #include "Arduino.h"
 #include <mcp2515.h>
@@ -12,7 +12,7 @@
 #define MINOR 1
 #define PATCH 6
 #define HEAD_NUMBER 1
-#define SHIFT_REGISTER_COUNT 2
+#define SHIFT_REGISTER_COUNT 3
 #define LISTEN_CHANNELS 32
 #define SHIFT_CH SHIFT_REGISTER_COUNT * 8
 #define FIRST_CH  (HEAD_NUMBER * 2 - 1) * 16
@@ -30,6 +30,7 @@
 #define STATUS_MODE_LED 0
 #define STATUS_MODE_DELAY_1 3000
 #define STATUS_MODE_DELAY_2 350
+#define STATUS_MODE_OPTIONS 3
 #define LATCH_PIN 16
 #define DATA_PIN 19
 #define CLOCK_PIN 17
@@ -49,6 +50,7 @@ bool buttonRead(struct button *btn) ;
 void canInterrupt() ;
 void canRead() ;
 void testProgram()  ;
+void SequentialUp();
 void blinkStatusLed() ;
 void setup() ;
 void loop() ;

@@ -56,7 +56,7 @@ void updateChannel(uint32_t *channelStatus, uint32_t *lastChannelStatus){
 		switch (*channelStatus)
 		{
 			case 0:
-				if (*lastChannelStatus == pow(2,SHIFT_CH)-1){
+				if (*lastChannelStatus == ((1UL << SHIFT_CH) - 1)){
 					*channelStatus = *lastChannelStatus;
 					for (int8_t i = 0; i < SHIFT_CH; i++){
 						bitClear(*channelStatus, i);
