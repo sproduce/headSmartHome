@@ -6,8 +6,8 @@
 
 
 #define MAJOR 1
-#define MINOR 1
-#define PATCH 6
+#define MINOR 2
+#define PATCH 4
 
 
 #define HEAD_NUMBER 1 //MAX value 7
@@ -40,7 +40,7 @@
 #define RESET_BUTTON 3
 
 #define STATUS_MODE_LED 0
-#define STATUS_MODE_DELAY_1 3000
+#define STATUS_MODE_DELAY_1 2500
 #define STATUS_MODE_DELAY_2 350
 #define STATUS_MODE_OPTIONS 3 //   <256
 
@@ -73,12 +73,22 @@ void pinoutInit() {
 }
 
 
+void endEPLearning()
+{
+	canData.can_id = 0x700;
+	canData.can_dlc = 1;
+	canData.data[0] = 0;
+	mcp2515.sendMessage(&canData);
+}
+
+
 
 void clearCan(){
   mcp2515.clearRXnOVR();
   mcp2515.clearMERR();
   mcp2515.clearInterrupts();
 }
+
 
 
 
@@ -309,7 +319,7 @@ void testProgram() // add status exit for entering configure
 		updateChannel(&channelStatus, &lastChannelStatus);
 
 		if (countTest == TEST_ATTEMPTS){break;}
-		if (buttonRead(&buttons[0])){break;}
+		if (buttonRead(&buttons[0]) && buttons[0].status == 0){break;}
 	}
 	channelStatus = 0;
 	updateChannel(&channelStatus, &lastChannelStatus);
@@ -338,6 +348,7 @@ void SequentialUp(){
 
 void blinkStatusLed() {
 	if ((uint16_t)((uint16_t)millis() - statusModeChangeTime) > STATUS_MODE_DELAY_1){
+				PORTD |= (1 << 0);
 				statusModeTmp = statusMode * 2;
 				statusModeChangeTime = millis();
 			}
@@ -379,6 +390,9 @@ void setup() {
 	canData.data[2] = PATCH;
 	mcp2515.sendMessage(&canData);
 
+	endEPLearning();
+
+
 	if (!digitalRead(RESET_BUTTON)){
 		sendResetMessage();
 		clearEeprom();
@@ -418,7 +432,6 @@ void loop() {
 	if (millis() - lastUpdateCan > DELAY_SEND_STATUS) {
 		sendChanelStatus();
 	}
-
 
 	updateChannel(&channelStatus, &lastChannelStatus);
 
