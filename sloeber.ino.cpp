@@ -2,7 +2,7 @@
 //This is a automatic generated file
 //Please do not modify this file
 //If you touch this file your change will be overwritten during the next build
-//This file has been generated on 2026-03-20 22:47:36
+//This file has been generated on 2026-05-20 01:04:03
 
 #include "Arduino.h"
 #include <mcp2515.h>
@@ -10,7 +10,7 @@
 #include <EEPROM.h>
 #define MAJOR 1
 #define MINOR 2
-#define PATCH 4
+#define PATCH 5
 #define HEAD_NUMBER 1
 #define SHIFT_REGISTER_COUNT 3
 #define LISTEN_CHANNELS 32
@@ -27,7 +27,7 @@
 #define TEST_DELAY 3000
 #define COUNT_BUTTONS 1
 #define RESET_BUTTON 3
-#define STATUS_MODE_LED 0
+#define STATUS_MODE_LED 1
 #define STATUS_MODE_DELAY_1 2500
 #define STATUS_MODE_DELAY_2 350
 #define STATUS_MODE_OPTIONS 3

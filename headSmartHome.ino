@@ -7,7 +7,7 @@
 
 #define MAJOR 1
 #define MINOR 2
-#define PATCH 4
+#define PATCH 5
 
 
 #define HEAD_NUMBER 1 //MAX value 7
@@ -39,7 +39,7 @@
 #define COUNT_BUTTONS 1
 #define RESET_BUTTON 3
 
-#define STATUS_MODE_LED 0
+#define STATUS_MODE_LED 1
 #define STATUS_MODE_DELAY_1 2500
 #define STATUS_MODE_DELAY_2 350
 #define STATUS_MODE_OPTIONS 3 //   <256
@@ -348,14 +348,14 @@ void SequentialUp(){
 
 void blinkStatusLed() {
 	if ((uint16_t)((uint16_t)millis() - statusModeChangeTime) > STATUS_MODE_DELAY_1){
-				PORTD |= (1 << 0);
+				PORTD |= (1 << STATUS_MODE_LED);
 				statusModeTmp = statusMode * 2;
 				statusModeChangeTime = millis();
 			}
 
 		if ((uint16_t)((uint16_t)millis() - statusModeChangeTime) > STATUS_MODE_DELAY_2 && statusModeTmp){
 			//digitalWrite(STATUS_MODE_LED, !digitalRead(STATUS_MODE_LED));
-			PIND = (1 << 0);
+			PIND = (1 << STATUS_MODE_LED);
 			statusModeTmp --;
 			statusModeChangeTime = millis();
 		}
