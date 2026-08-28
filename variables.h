@@ -31,7 +31,8 @@ union {
 
 
 uint32_t channelStatus = 0, lastChannelStatus = 0;
-uint32_t dualChannel = 0, alwaysOnChannel = 0;
+
+uint32_t dualChannel = 0, alwaysOnChannel = 0, systemChannel = 0; // write to EEPROM
 
 uint32_t allOffStatus = 0, lastUpdateCan = 0;
 

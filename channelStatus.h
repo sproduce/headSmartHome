@@ -7,6 +7,7 @@ uint32_t channelStatusUpdate = 0;//timestamp
 
 void shiftRegisterClean(){
 	digitalWrite(CLEAR_PIN, LOW);
+	delay(1);
 	digitalWrite(CLEAR_PIN, HIGH);
 }
 

@@ -7,10 +7,10 @@
 
 #define MAJOR 1
 #define MINOR 2
-#define PATCH 5
+#define PATCH 6
 
 
-#define HEAD_NUMBER 1 //MAX value 7
+#define HEAD_NUMBER 2 //MAX value 7
 #define SHIFT_REGISTER_COUNT 3  // possible value 2 or 3
 
 
@@ -26,7 +26,10 @@
 #define STATUS_MODE_EEPROM 0 // EEPROM address save status clear byte
 #define STATUS_ALWAYSON_EEPROM 1
 #define STATUS_DUALCHANNEL_EEPROM 2
-#define STATUS_ONDELAY_EEPROM 3
+#define STATUS_SYSTEMCHANNEL_EEPROM 3
+
+
+#define STATUS_ONDELAY_EEPROM 10 ///!!!!! ATTANTION !!!!
 //!!!!! 3 + SHIFT_CH  MAX NEXT VALUE 35
 
 
@@ -124,6 +127,11 @@ void configChannel(const can_frame *canData){
 	fourByteUnion.byteValue[2] = canData->data[2];
 	fourByteUnion.byteValue[3] = canData->data[1];
 	switch (canData->data[0]){
+
+		case 4: // set system channel
+				systemChannel = fourByteUnion.value;
+		break;
+
 		case 5: // set dual channel   (example set 3 line dual "cansend can0 02e#05.00.00.00.04")
 			fourByteUnion.byteValue[3] = 0;// only available shift register value
 			dualChannel = fourByteUnion.value;
@@ -133,15 +141,19 @@ void configChannel(const can_frame *canData){
 			alwaysOnChannel = fourByteUnion.value;
 		break;
 
+
 		case 7: // set status on delay (cansend can0 02e#07.00.00.ff.0f.05) line 6 status on ~4sec
 			if (canData->can_dlc == 6 && canData->data[5] < SHIFT_CH){
 				statusOnDelay[canData->data[5]] = fourByteUnion.value;
 			}
 		break;
 
+
 		case 100:// save line extension
 			setUint32(alwaysOnChannel, STATUS_ALWAYSON_EEPROM);
 			setUint32(dualChannel,STATUS_DUALCHANNEL_EEPROM);
+			setUint32(systemChannel,STATUS_SYSTEMCHANNEL_EEPROM);
+
 			for(uint8_t i = 0; i < SHIFT_CH; i++){
 				setUint32(statusOnDelay[i], STATUS_ONDELAY_EEPROM + i);
 			}
@@ -233,10 +245,17 @@ void canRead()
 	uint8_t channelState,status;
 	while (mcp2515.readMessage(&canData) == MCP2515::ERROR_OK) {
 		if (canData.can_id >= FIRST_CH && canData.can_id <= LAST_CH){
-			channelState = canData.can_id - FIRST_CH;
+			channelState = canData.can_id - FIRST_CH; // calculate HEAD channel
+
 			if (channelState >=0 && channelState < SHIFT_CH){// line channel
-				channelStatus |= alwaysOnChannel; // ON system channel
-				bitClear(channelStatus, 31); // status ALL OFF
+
+				//allOffStatus;  change if change systemChannel
+
+				if (!bitRead(systemChannel, channelState)){
+					channelStatus |= alwaysOnChannel; // ON olwaysChannel
+					bitClear(channelStatus, 31); // status ALL OFF
+
+				}
 				status = canData.data[0];
 
 				if (bitRead(dualChannel, channelState)){
@@ -271,16 +290,14 @@ void canRead()
 					break;
 
 					case 31:
-						fourByteUnion.value = channelStatus;
-						fourByteUnion.byteValue[3] = 0;// ONLY SHIFT REGISTER
 						if (bitRead(channelStatus, channelState) && (millis() - statusChange[channelState] < 3000)){
-							channelStatus = allOffStatus;
-							if(fourByteUnion.value){
-								bitClear(channelStatus, channelState);
-							}
+							channelStatus |= allOffStatus;
+							bitClear(channelStatus, channelState);
 						} else {
-							allOffStatus = channelStatus;
-							channelStatus = 0;
+
+							allOffStatus = channelStatus &~ systemChannel; // for retorl line not system
+							channelStatus &= systemChannel;  //for OFF not system channel
+
 							bitSet(channelStatus, channelState);
 						}
 					break;
@@ -402,6 +419,7 @@ void setup() {
 	statusMode = getUint32(STATUS_MODE_EEPROM);
 	alwaysOnChannel = getUint32(STATUS_ALWAYSON_EEPROM);
 	dualChannel = getUint32(STATUS_DUALCHANNEL_EEPROM);
+	systemChannel = getUint32(STATUS_SYSTEMCHANNEL_EEPROM);
 
 
 	for(uint8_t i = 0; i < SHIFT_CH; i++){
