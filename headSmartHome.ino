@@ -10,7 +10,7 @@
 #define PATCH 6
 
 
-#define HEAD_NUMBER 2 //MAX value 7
+#define HEAD_NUMBER 1 //MAX value 7
 #define SHIFT_REGISTER_COUNT 3  // possible value 2 or 3
 
 
@@ -161,6 +161,7 @@ void configChannel(const can_frame *canData){
 		case 101: //clear line extension
 			alwaysOnChannel = 0;
 			dualChannel = 0;
+			systemChannel = 0;
 			for(uint8_t i = 0; i < SHIFT_CH; i++){
 				statusOnDelay[i] = 0;
 			}

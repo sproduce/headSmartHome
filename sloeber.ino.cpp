@@ -2,7 +2,7 @@
 //This is a automatic generated file
 //Please do not modify this file
 //If you touch this file your change will be overwritten during the next build
-//This file has been generated on 2026-08-27 20:05:07
+//This file has been generated on 2026-09-23 20:25:32
 
 #include "Arduino.h"
 #include <mcp2515.h>
@@ -11,7 +11,7 @@
 #define MAJOR 1
 #define MINOR 2
 #define PATCH 6
-#define HEAD_NUMBER 2
+#define HEAD_NUMBER 1
 #define SHIFT_REGISTER_COUNT 3
 #define LISTEN_CHANNELS 32
 #define SHIFT_CH SHIFT_REGISTER_COUNT * 8
